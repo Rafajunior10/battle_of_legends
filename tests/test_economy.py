@@ -2,9 +2,9 @@ import random
 
 import pytest
 
-from game.cards import CARDS, MAX_COPIES, PACKS
 from game.core import economy
 from game.core.economy import ShopError, TradeOffer
+from game.data.cards import CARDS, MAX_COPIES, PACKS
 
 
 def test_comprar_carta(hero):

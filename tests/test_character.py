@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from game.cards import CARDS, DECK_MAX, DECK_MIN, MAX_COPIES, PLAYER_DECK, START_BETS, UTILITY
-from game.character import LEGACY_REFUND, Character, DeckError, archetypes_ok, xp_to_next
+from game.data.cards import CARDS, DECK_MAX, DECK_MIN, MAX_COPIES, PLAYER_DECK, START_BETS, UTILITY
+from game.data.character import LEGACY_REFUND, Character, DeckError, archetypes_ok, xp_to_next
 
 
 def test_novo_personagem(hero):

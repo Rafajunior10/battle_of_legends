@@ -4,14 +4,14 @@ import random
 
 import pytest
 
-from game.cards import CARDS, ELEMENTS, Deck
-from game.character import DeckError
 from game.core import abilities
 from game.core import events as ev
 from game.core.combat import Combatant, start_turn
 from game.core.effects import DamageEffect, IceEffect
-from game.legends import LEGENDS, legends_for
-from game.sprites import LEGEND_DIR
+from game.data.cards import CARDS, ELEMENTS, Deck
+from game.data.character import DeckError
+from game.data.legends import LEGENDS, legends_for
+from game.graphics.sprites import LEGEND_DIR
 
 # (nome, classe, arquétipo, vida, força, proteção, energia) — a tabela que o usuário mandou
 TABLE = {

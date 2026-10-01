@@ -9,7 +9,7 @@ import math
 import random
 from dataclasses import dataclass, replace
 
-from .core.effects import (
+from game.core.effects import (
     AuraEffect,
     BurnEffect,
     DamageEffect,

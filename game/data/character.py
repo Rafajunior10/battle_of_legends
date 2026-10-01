@@ -6,7 +6,7 @@ import os
 from collections import Counter
 from dataclasses import asdict, dataclass, field, fields
 
-from .cards import (
+from game.data.cards import (
     ARCHETYPE_NAMES,
     CARD_LIST,
     CARDS,
@@ -20,9 +20,9 @@ from .cards import (
     UTILITY,
     CardDef,
 )
-from .legends import LEGENDS, default_legend
-from .looks import Look
-from .settings import SAVE_PATH
+from game.data.legends import LEGENDS, default_legend
+from game.data.looks import Look
+from game.engine.settings import SAVE_PATH
 
 DECK_SLOTS = 3
 # campo do looks.Look -> atributo do Character (o penteado tem outro nome por causa de saves antigos)

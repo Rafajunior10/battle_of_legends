@@ -9,7 +9,7 @@ import os
 
 import pygame
 
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # card-quest/
 CONFIG_PATH = os.path.join(ROOT_DIR, "config.json")
 
 ACTIONS = [

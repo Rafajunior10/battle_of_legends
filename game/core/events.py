@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .combat import Combatant
+    from game.core.combat import Combatant
 
 
 @dataclass(frozen=True)

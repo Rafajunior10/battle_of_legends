@@ -2,9 +2,9 @@ import random
 
 import pytest
 
-from game.cards import CARDS, MAX_COPIES
 from game.core.tournament import ROUNDS, XP_MULTIPLIER, Tournament
-from game.opponents import TRAINERS, level_factor, random_wild, rewards, trainer_spec
+from game.data.cards import CARDS, MAX_COPIES
+from game.data.opponents import TRAINERS, level_factor, random_wild, rewards, trainer_spec
 
 
 def test_treinadores_validos():

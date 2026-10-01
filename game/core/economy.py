@@ -7,8 +7,8 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass
 
-from ..cards import CARD_LIST, CARDS, MAX_CARD_LEVEL, MAX_COPIES, RARITY_PRICES, Pack, open_pack
-from ..character import Character
+from game.data.cards import CARD_LIST, CARDS, MAX_CARD_LEVEL, MAX_COPIES, RARITY_PRICES, Pack, open_pack
+from game.data.character import Character
 
 # custo em XP de batalha para ir ao nível 2 e ao nível 3
 UPGRADE_XP = {"comum": (40, 80), "rara": (80, 160), "epica": (120, 240)}

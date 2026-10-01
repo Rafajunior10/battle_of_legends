@@ -96,51 +96,62 @@ Todas as teclas podem ser trocadas em **OPÇÕES**. Os padrões:
 | `assets/legends/` | Arte dos legends (do dono do projeto) e `tools/build_legends.py`, que recorta as folhas | Sim |
 | `assets/mana_seed/` | **Mana Seed Character Base (demo grátis)** de Seliel the Shaper: as pessoas, em camadas | **Não**: baixe em [seliel-the-shaper.itch.io/character-base](https://seliel-the-shaper.itch.io/character-base) e extraia o conteúdo do zip em `assets/mana_seed/` |
 
-Sem o Mana Seed o jogo funciona igual: as pessoas são desenhadas por código (`game/people.py`).
+Sem o Mana Seed o jogo funciona igual: as pessoas são desenhadas por código (`game/graphics/people.py`).
 Detalhes em `assets/README.txt`.
 
 ## Estrutura
 
-As regras ficam em `game/core/` e não dependem de Pygame. As cenas só leem o estado, chamam as regras e
-animam os **eventos** que voltam. Dados (cartas, legends, mapas, NPCs) ficam separados do comportamento.
+Cada pasta de `game/` responde a uma pergunta: **regras** (`core`), **dados** (`data`), **desenho**
+(`graphics`), **motor** (`engine`) e **telas** (`scenes`). As regras não dependem de Pygame: as cenas só leem o
+estado, chamam as regras e animam os **eventos** que voltam. Dados (cartas, legends, mapas, NPCs) ficam separados do comportamento.
 
 ```
-main.py, dev.py            ponto de entrada e modo de desenvolvimento
-tools/build_legends.py     recorta a arte dos legends e tira o fundo
+main.py, dev.py              ponto de entrada e modo de desenvolvimento (reinicia ao salvar)
+tools/build_legends.py       recorta a arte dos legends e tira o fundo
 game/
-  app.py, display.py       laço principal, janela, FPS
-  core/                    regras puras (testadas em tests/)
-    combat.py              estado de quem duela e o turno
-    effects.py, events.py  efeitos das cartas e eventos para a interface narrar
-    abilities.py           transformação e habilidades dos legends
-    ai.py                  IA fácil / normal / difícil (inclui as habilidades)
-    economy.py             loja, evolução e trocas
-    tournament.py          torneio do coliseu
-  cards.py                 as 27 cartas, tipos, raridades e o deck
-  legends.py               os legends (dados)
-  character.py             personagem, coleção, decks, legends e save
-  opponents.py, world.py   treinadores, monstros, mapas e falas
-  looks.py                 aparência das pessoas (dados)
-  mana_seed.py, wardrobe.py pessoas em camadas e as peças de roupa e cortes derivados
-  people.py                pessoas desenhadas por código (quando não há Mana Seed)
-  sprites.py               ponto único para pedir pessoas, monstros, legends e rostos
-  pixelfont.py, ui.py      fonte pixel própria e peças de interface
-  scenes/
-    battle.py              batalha: fila de passos, turnos, narração e habilidades
-    battle_hud.py          desenho da batalha (painéis, marcadores, mão, botões)
-    battle_fx.py           animações: transformação, faixa do legend, golpes, partículas
-    lobby.py, shop.py, deckedit.py, create.py, profile.py, options.py, title.py
-tests/                     pytest
+  core/                      REGRAS puras, sem Pygame (testadas em tests/)
+    combat.py                estado de quem duela e o turno
+    effects.py, events.py    efeitos das cartas e eventos para a interface narrar
+    abilities.py             transformação e habilidades dos legends
+    ai.py                    IA fácil / normal / difícil (inclui as habilidades)
+    economy.py, tournament.py  loja, evolução, trocas e o torneio do coliseu
+    rules.py                 números da batalha (mão, energia, gelo...)
+  data/                      DADOS do jogo
+    cards.py                 as 27 cartas, tipos, raridades e o deck
+    legends.py               os legends
+    character.py             personagem, coleção, decks, legends e save
+    opponents.py, world.py   treinadores, monstros, mapas, NPCs e falas
+    looks.py, props.py       aparência das pessoas e catálogo de objetos do mapa
+  graphics/                  DESENHO e arte
+    sprites.py               ponto único para pedir pessoas, monstros, legends e rostos
+    mana_seed.py, wardrobe.py  pessoas em camadas e as peças de roupa e cortes derivados
+    people.py                pessoas desenhadas por código (quando não há Mana Seed)
+    assets.py                lê o pacote Ninja Adventure
+    tilemap.py, tileset.py   chão e objetos dos mapas (pacote / desenho por código)
+    buildings.py, backgrounds.py  construções com placa e o cenário da batalha
+    pixelart.py, pixelfont.py     cartas, ícones e a fonte pixel própria
+  engine/                    MOTOR
+    app.py, display.py       laço principal, janela, FPS
+    transition.py, ui.py     transições, caixas de texto, menus
+    config.py, settings.py   opções (config.json), resolução, cores e controles
+    sfx.py                   música e sons gerados por código
+  scenes/                    TELAS
+    battle.py                batalha: fila de passos, turnos, narração e habilidades
+    battle_hud.py            desenho da batalha (painéis, marcadores, mão, botões)
+    battle_fx.py             animações: transformação, faixa do legend, golpes, partículas
+    lobby.py, actors.py      mundo andável e personagens em grade
+    shop.py, deckedit.py, create.py, profile.py, options.py, title.py, common.py
+tests/                       pytest
 ```
 
 ## Como expandir
 
-- **Nova carta**: um `CardDef` em `game/cards.py` (a planilha em `tests/test_cards.py` confere os números).
+- **Nova carta**: um `CardDef` em `game/data/cards.py` (a planilha em `tests/test_cards.py` confere os números).
 - **Novo efeito**: classe em `game/core/effects.py` + evento em `game/core/events.py` + narração em
   `BattleScene.NARRATORS` (um teste avisa se faltar).
-- **Novo legend**: um `LegendDef` em `game/legends.py`, a folha em `assets/legends/source/<id>.jpg`, os
+- **Novo legend**: um `LegendDef` em `game/data/legends.py`, a folha em `assets/legends/source/<id>.jpg`, os
   recortes em `tools/build_legends.py` (`python tools/build_legends.py`) e a habilidade em
   `game/core/abilities.py`. Com mais de um legend do mesmo tipo, o editor de deck pergunta qual usar.
-- **Novo treinador**: entrada em `TRAINERS` (`game/opponents.py`) e posição e falas em `game/world.py`.
-- **Novo mapa**: função `build_...()` e um `MapDef` em `game/world.py` (os testes conferem se dá para
+- **Novo treinador**: entrada em `TRAINERS` (`game/data/opponents.py`) e posição e falas em `game/data/world.py`.
+- **Novo mapa**: função `build_...()` e um `MapDef` em `game/data/world.py` (os testes conferem se dá para
   chegar em tudo e se as passagens batem).

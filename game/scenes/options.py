@@ -1,11 +1,21 @@
 """Opções: modo de tela (janela / tela cheia), tamanho da janela, FPS e teclas."""
 import pygame
 
-from .. import config, sfx
-from ..config import ACTIONS, FPS_OPTIONS, SCALES, action_label, key_label
-from ..settings import CANCEL_KEYS, CONFIRM_KEYS, DOWN_KEYS, GAME_H, GAME_W, HIGHLIGHT, LEFT_KEYS, RIGHT_KEYS, UP_KEYS
-from ..ui import draw_box, draw_cursor, draw_text, vertical_gradient
-from .base import Scene
+from game.engine import config, sfx
+from game.engine.config import ACTIONS, FPS_OPTIONS, SCALES, action_label, key_label
+from game.engine.settings import (
+    CANCEL_KEYS,
+    CONFIRM_KEYS,
+    DOWN_KEYS,
+    GAME_H,
+    GAME_W,
+    HIGHLIGHT,
+    LEFT_KEYS,
+    RIGHT_KEYS,
+    UP_KEYS,
+)
+from game.engine.ui import draw_box, draw_cursor, draw_text, vertical_gradient
+from game.scenes.base import Scene
 
 ROW_SCREEN, ROW_SCALE, ROW_FPS, ROW_SHOW_FPS = 0, 1, 2, 3
 FIRST_ACTION = 4

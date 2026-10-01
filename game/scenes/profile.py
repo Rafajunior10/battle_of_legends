@@ -12,14 +12,14 @@ from dataclasses import dataclass
 
 import pygame
 
-from .. import pixelart as art
-from .. import sprites
-from ..character import deck_archetype
-from ..config import action_label
-from ..legends import LEGENDS
-from ..opponents import TRAINERS
-from ..settings import GAME_H, GAME_W
-from ..ui import dither_gradient, draw_outlined, draw_text, overlay, wrap
+from game.data.character import deck_archetype
+from game.data.legends import LEGENDS
+from game.data.opponents import TRAINERS
+from game.engine.config import action_label
+from game.engine.settings import GAME_H, GAME_W
+from game.engine.ui import dither_gradient, draw_outlined, draw_text, overlay, wrap
+from game.graphics import pixelart as art
+from game.graphics import sprites
 
 BOX_W, BOX_H = 300, 214
 BANNER = pygame.Rect(108, 8, BOX_W - 120, 20)     # à direita: o retrato (alto) fica à esquerda
@@ -28,7 +28,7 @@ BANNER = pygame.Rect(108, 8, BOX_W - 120, 20)     # à direita: o retrato (alto)
 @dataclass(frozen=True)
 class Theme:
     title: str
-    icon: str                   # ícone de game/pixelart.py
+    icon: str                   # ícone de game/graphics/pixelart.py
     top: tuple                  # degradê do fundo (cima -> baixo)
     bottom: tuple
     border: tuple               # moldura clara

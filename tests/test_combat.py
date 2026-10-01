@@ -1,9 +1,9 @@
 import pytest
 
-from game.cards import CARDS
 from game.core import events as ev
 from game.core.combat import end_turn, loser, pay_card, play_card, start_turn
 from game.core.rules import HAND_SIZE, ICE_LIMIT, MAX_ENERGY
+from game.data.cards import CARDS
 
 
 def test_dano_bate_na_aura_depois_defesa_depois_pv(make_fighter):

@@ -9,6 +9,9 @@ game-architecture, game-ai, game-ui-pygame, game-testing, game-design, game-debu
 
 ## Convenções
 
+- **Pastas de `game/`**: `core/` regras puras (sem Pygame), `data/` dados (cartas, legends, mapas, personagem),
+  `graphics/` desenho e arte, `engine/` motor (app, janela, som, ui, opções), `scenes/` telas. Arquivo novo vai
+  na pasta do assunto dele. Imports sempre absolutos (`from game.data.cards import ...`).
 - **Regras em `game/core/`, sem Pygame.** Cenas (`game/scenes/`) leem o estado, chamam as regras e
   animam. Nunca calcule dano, preço ou limite de deck dentro de uma cena.
 - **Cartas são dados + efeitos.** `CardDef` gera `effects` a partir dos campos; nada de `if card.id == ...`.
@@ -16,12 +19,12 @@ game-architecture, game-ai, game-ui-pygame, game-testing, game-design, game-debu
 - **Regras recusadas levantam exceção com mensagem para o jogador**: `ShopError` (economia),
   `DeckError` (decks). A cena captura e mostra o texto.
 - **Aleatoriedade injetável**: funções com sorteio recebem `rng: random.Random | None`.
-- **Teclas** vêm de `game/config.py` (`CONFIRM_KEYS`, `UP_KEYS`...), nunca `pygame.K_*` direto em cena
+- **Teclas** vêm de `game/engine/config.py` (`CONFIRM_KEYS`, `UP_KEYS`...), nunca `pygame.K_*` direto em cena
   (exceção: digitação do nome em `create.py`).
 - **Cada deck tem um TIPO** (`Character.deck_elements`: fogo/gelo/raio/veneno; `cards.ELEMENTS`): só entram
   cartas desse tipo e de Utilidades (`Character.fits_deck`, `add_to_deck` recusa as outras). A loja separa as
   cartas em sub-abas por tipo (`shop.TYPES`) e o editor de deck só lista o tipo do deck + Utilidades.
-- **Legends** (`game/legends.py`, tabela do usuário em `tests/test_legends.py`): cada deck tem 1 legend do mesmo
+- **Legends** (`game/data/legends.py`, tabela do usuário em `tests/test_legends.py`): cada deck tem 1 legend do mesmo
   tipo (`Character.deck_legends`). No começo da batalha os dois duelistas se transformam (`battle_fx.Transform` +
   `CutIn`, `core.abilities.become`): PV, força (+dano por golpe), proteção (tira de cada golpe depois de aura e
   defesa) e energia por turno passam a ser os do legend. Habilidades em `core/abilities.py` (ativas: botão
@@ -31,7 +34,7 @@ game-architecture, game-ai, game-ui-pygame, game-testing, game-design, game-debu
   só desenho (mixin `BattleHUD` com painéis, marcadores, mão, botões); `scenes/battle_fx.py` = animações.
 - **Repositório**: github.com/Rafajunior10/battle_of_legends. `assets/mana_seed/` e `assets/static_creatures/`
   ficam fora do git (licença); o jogo e os testes precisam funcionar sem elas.
-- **Dados do mundo** (mapa, NPCs, falas) ficam em `game/world.py`; `lobby.py` só tem comportamento.
+- **Dados do mundo** (mapa, NPCs, falas) ficam em `game/data/world.py`; `lobby.py` só tem comportamento.
 - **Diálogo com pergunta**: use `ui.Prompt` (`say`, `ask`, `choose`), não recrie DialogBox + Menu na cena.
 - **Cartas vêm da planilha de regras** do usuário; `tests/test_cards.py` (SPREADSHEET) confere os números.
   Mudou carta? Atualize os dois. A descrição é gerada pelos campos (`CardDef.text`), não escreva à mão.
@@ -43,23 +46,23 @@ game-architecture, game-ai, game-ui-pygame, game-testing, game-design, game-debu
   são calculadas dos objetos; comportamento de portas fica em `LobbyScene.door_action`. Objetos e personagens
   são desenhados juntos por profundidade (`LobbyScene.draw_standing`).
 - **Pessoas = Mana Seed Character Base** (demo grátis, `assets/mana_seed/`), montadas em CAMADAS por
-  `game/mana_seed.py`: corpo (`0bas`) -> roupas -> cabelo (`4har`) -> chapéu (`5hat`). As ROUPAS (camisa, regata,
-  top, manga longa, calça, bermuda, saia, vestido, tênis) e os cortes raspado/longo saem de `game/wardrobe.py`:
+  `game/graphics/mana_seed.py`: corpo (`0bas`) -> roupas -> cabelo (`4har`) -> chapéu (`5hat`). As ROUPAS (camisa, regata,
+  top, manga longa, calça, bermuda, saia, vestido, tênis) e os cortes raspado/longo saem de `game/graphics/wardrobe.py`:
   a roupa do lenhador (`fstr`) é o molde das partes do corpo (cada cor = uma parte), o corpo base é nu (apagar
   roupa mostra a pele), as cores são trocadas mantendo o tom relativo e saia/vestido são desenhados seguindo as
   pernas. Antes de mudar uma peça, gere uma folha de prévia e confira em todas as direções e passos. Quadros recortados em 32 x 44 com
   os pés embaixo; a caminhada tem 6 quadros (`(direção, "walk")`, usada por `Actor.image`). Peça nova = arquivo
   do pacote + entrada nas tabelas de `mana_seed.py`/`looks.py`. NÃO desenhe pessoas por código: o usuário rejeitou
-  todas as tentativas; `game/people.py` só existe como reserva quando a pasta do Mana Seed não está instalada.
+  todas as tentativas; `game/graphics/people.py` só existe como reserva quando a pasta do Mana Seed não está instalada.
 - **Ampliar pixel art** só por inteiro: use `sprites.fit_scale(img, altura)` em vez de escala fixa.
-- **Texto** sempre por `ui.draw_text`/`draw_outlined`/`text_width` (fonte pixel própria em `game/pixelfont.py`,
+- **Texto** sempre por `ui.draw_text`/`draw_outlined`/`text_width` (fonte pixel própria em `game/graphics/pixelfont.py`,
   com acentos). `size` < 12 = fonte pequena só maiúsculas; 12-19 = normal; 20+ = normal ampliada. Caractere
   novo num texto do jogo precisa de letra lá (`tests/test_pixelfont.py` confere).
 - **Ficha do jogador** (`scenes/profile.py`) tem o tema do elemento do deck ativo (`THEMES`); abre pelo menu ou
   pela ação de teclado `profile` (I/E).
-- **Construções** da vila são modernas e desenhadas por código (`game/buildings.py`); toda construção com
+- **Construções** da vila são modernas e desenhadas por código (`game/graphics/buildings.py`); toda construção com
   porta tem placa com o nome (`Placed(..., label="CASA DO RAFA")`).
-- **Arte**: telas pedem desenhos sempre por `game/sprites.py` (nunca `assets`/`pixelart` direto para
+- **Arte**: telas pedem desenhos sempre por `game/graphics/sprites.py` (nunca `assets`/`pixelart` direto para
   personagens e monstros). Sem `assets/ninja_adventure/` tudo cai na arte por código — os testes precisam
   passar nos dois casos.
 - Save (`save.json`) precisa continuar carregando saves antigos: migre em `Character.load()/sanitize()`.

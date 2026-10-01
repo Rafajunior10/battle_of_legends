@@ -9,10 +9,10 @@ from typing import NamedTuple
 
 import pygame
 
-from .. import pixelart as art
-from .. import sfx
-from ..settings import GAME_W
-from ..ui import overlay
+from game.engine import sfx
+from game.engine.settings import GAME_W
+from game.engine.ui import overlay
+from game.graphics import pixelart as art
 
 RED = (232, 64, 48)
 DARK = (40, 40, 48)
@@ -436,7 +436,7 @@ class CutIn(Timed):
         self.from_left = from_left
 
     def draw(self, surf):
-        from ..ui import draw_outlined, draw_text
+        from game.engine.ui import draw_outlined, draw_text
         p = self.p
         slide = 1 - (1 - min(1.0, p / 0.18)) ** 3 if p < 0.82 else 1 - ((p - 0.82) / 0.18) ** 2
         band_h = 64

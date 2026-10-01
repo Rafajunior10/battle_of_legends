@@ -1,7 +1,7 @@
 """Transições de tela: fade simples e a clássica entrada de batalha (piscar + barras)."""
 import pygame
 
-from .settings import GAME_H, GAME_W
+from game.engine.settings import GAME_H, GAME_W
 
 
 class Transition:

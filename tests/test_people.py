@@ -3,12 +3,22 @@ import random
 
 import pytest
 
-from game import people
-from game.character import Character
 from game.core.tournament import random_look
-from game.looks import BOTTOMS, CLOTH_COLORS, GENDERS, HAIR_COLORS, HAIR_STYLES, SHOE_COLORS, SKIN_TONES, TOPS, Look
-from game.opponents import TRAINERS
-from game.world import MAPS
+from game.data.character import Character
+from game.data.looks import (
+    BOTTOMS,
+    CLOTH_COLORS,
+    GENDERS,
+    HAIR_COLORS,
+    HAIR_STYLES,
+    SHOE_COLORS,
+    SKIN_TONES,
+    TOPS,
+    Look,
+)
+from game.data.opponents import TRAINERS
+from game.data.world import MAPS
+from game.graphics import people
 
 
 def all_looks():

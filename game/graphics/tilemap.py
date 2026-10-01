@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import pygame
 
-from . import assets
-from .props import OBJECTS, TREE_KINDS
+from game.data.props import OBJECTS, TREE_KINDS
+from game.graphics import assets
 
 TILE = 16
 TILESET_DIR = "backgrounds/tilesets"

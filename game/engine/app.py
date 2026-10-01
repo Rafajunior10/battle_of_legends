@@ -3,11 +3,11 @@ import os
 
 import pygame
 
-from . import config, sfx
-from .display import Display
-from .settings import TITLE
-from .transition import Transition
-from .ui import draw_outlined
+from game.engine import config, sfx
+from game.engine.display import Display
+from game.engine.settings import TITLE
+from game.engine.transition import Transition
+from game.engine.ui import draw_outlined
 
 MAX_DT = 1 / 20      # um travamento longo não faz tudo "pular" de uma vez
 
@@ -27,13 +27,13 @@ class Game:
         self.running = True
         self.scene = None
         if not (os.environ.get("CARD_QUEST_AUTOLOAD") and self.autoload()):
-            from .scenes.title import TitleScene
+            from game.scenes.title import TitleScene
             self.change_scene(TitleScene(self))
 
     def autoload(self):
         """Modo dev: carrega o save e vai direto para o lobby."""
-        from .character import Character
-        from .scenes.lobby import LobbyScene
+        from game.data.character import Character
+        from game.scenes.lobby import LobbyScene
         character = Character.load() if Character.exists() else None
         if character is None:
             return False
@@ -73,7 +73,7 @@ class Game:
             self.transition = Transition(style, lambda: self.change_scene(make_scene()))
 
     def start_battle(self, spec, on_end):
-        from .scenes.battle import BattleScene
+        from game.scenes.battle import BattleScene
         sfx.music(None)
         sfx.play("encounter")
         self.transition_to(lambda: BattleScene(self, spec, on_end), style="battle")

@@ -14,7 +14,7 @@ import zipfile
 
 import pygame
 
-from .settings import ROOT_DIR
+from game.engine.settings import ROOT_DIR
 
 ASSETS_DIR = os.path.join(ROOT_DIR, "assets")
 FRAME = 16                                      # quadros de 16x16

@@ -6,8 +6,8 @@ import math
 
 import pygame
 
-from .settings import GAME_W
-from .ui import dither_gradient
+from game.engine.settings import GAME_W
+from game.engine.ui import dither_gradient
 
 BATTLE_H = 168
 SKY_TOP, SKY_BOTTOM = (88, 152, 224), (208, 232, 248)

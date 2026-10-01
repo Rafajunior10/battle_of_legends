@@ -4,8 +4,8 @@ import os
 import pygame
 import pytest
 
-from game import mana_seed, sprites
-from game.looks import HAIR_COLORS, HAIR_STYLES, HATS, SKIN_TONES, Look
+from game.data.looks import HAIR_COLORS, HAIR_STYLES, HATS, SKIN_TONES, Look
+from game.graphics import mana_seed, sprites
 
 pytestmark = pytest.mark.skipif(not mana_seed.available(), reason="sem a pasta assets/mana_seed")
 
@@ -84,7 +84,7 @@ def test_cabelo_longo_desce_mais_que_o_chanel_e_raspado_tem_menos_volume():
 
 @pytest.mark.parametrize("gender", ["Masculino", "Feminino"])
 def test_toda_combinacao_de_pecas_desenha(gender):
-    from game.looks import BOTTOMS, TOPS
+    from game.data.looks import BOTTOMS, TOPS
     for top in TOPS[gender]:
         for bottom in BOTTOMS[gender]:
             frames = mana_seed.character_frames(Look(gender, top=top, bottom=bottom))

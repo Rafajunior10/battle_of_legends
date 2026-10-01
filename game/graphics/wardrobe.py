@@ -18,7 +18,7 @@ import os
 
 import pygame
 
-from .looks import CLOTH_COLORS, SHOE_COLORS, Look
+from game.data.looks import CLOTH_COLORS, SHOE_COLORS, Look
 
 FRAME = 64
 OUTLINE = (24, 24, 24)
@@ -130,7 +130,7 @@ def _mold_cell(fstr, pfpn, row, col) -> Mold:
 def molds() -> dict:
     """{(linha, coluna): Mold} — calculado uma vez a partir das folhas do pacote."""
     if not _molds:
-        from .mana_seed import PAGE_DIR
+        from game.graphics.mana_seed import PAGE_DIR
         fstr = pygame.image.load(os.path.join(PAGE_DIR, "1out", "char_a_p1_1out_fstr_v01.png"))
         pfpn = pygame.image.load(os.path.join(PAGE_DIR, "1out", "char_a_p1_1out_pfpn_v01.png"))
         for cell in CELLS:

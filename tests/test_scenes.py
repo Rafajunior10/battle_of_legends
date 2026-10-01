@@ -7,17 +7,17 @@ from collections import deque
 import pygame
 import pytest
 
-from game.app import Game
-from game.cards import PACKS, make_deck
-from game.character import Character
-from game.opponents import trainer_spec
+from game.data.cards import PACKS, make_deck
+from game.data.character import Character
+from game.data.opponents import trainer_spec
+from game.data.world import MAPS, TRAINER_TALK
+from game.engine.app import Game
 from game.scenes.battle import BattleScene
 from game.scenes.deckedit import DeckEditScene
 from game.scenes.lobby import LobbyScene
 from game.scenes.options import OptionsScene
 from game.scenes.shop import TABS, TYPES, ShopScene
 from game.scenes.title import TitleScene
-from game.world import MAPS, TRAINER_TALK
 
 STRONG_DECK = make_deck(choque_do_trovao=3, zeus_luz=3, chicote_de_raios=3, tela_de_luz=2, amansa_loko=3,
                         murrao=3, golpe_perfurante=3)
@@ -274,7 +274,7 @@ def test_criacao_mostra_o_valor_certo_em_cada_linha(game):
 
 def test_mapas_funcionam_sem_o_pacote_de_arte(game, tmp_path, monkeypatch):
     """Sem assets/ninja_adventure o jogo cai na arte desenhada por código, sem quebrar."""
-    from game import assets
+    from game.graphics import assets
     monkeypatch.setattr(assets, "ASSETS_DIR", str(tmp_path))
     assets.reset()
     try:
@@ -306,7 +306,7 @@ def test_atalho_abre_e_fecha_a_ficha(lobby, drive):
 
 
 def test_ficha_usa_o_tema_do_deck(game):
-    from game.cards import CARDS
+    from game.data.cards import CARDS
     from game.scenes.profile import NEUTRAL, THEMES, theme_of
     ch = game.character
     for element in THEMES:
@@ -326,7 +326,7 @@ def test_ctrl_c_no_terminal_fecha_sem_erro(game, monkeypatch):
 
 
 def test_loja_separa_as_cartas_por_tipo(game):
-    from game.cards import CARDS
+    from game.data.cards import CARDS
     shop = ShopScene(game, lambda: shop)
     shop.tab = TABS.index("COMPRAR")
     for i, kind in enumerate(TYPES):
@@ -352,7 +352,7 @@ def test_loja_navega_abas_sub_abas_e_lista(game, drive):
 
 
 def test_editor_so_mostra_cartas_do_tipo_do_deck(game):
-    from game.cards import CARDS
+    from game.data.cards import CARDS
     ch = game.character
     ch.collection += ["garras_de_veneno", "bola_de_fogo"]
     ch.set_deck_element(1, "veneno")

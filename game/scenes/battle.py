@@ -11,14 +11,11 @@ from typing import ClassVar
 
 import pygame
 
-from .. import backgrounds, sfx, sprites
-from .. import pixelart as art
-from ..cards import ARCHETYPE_NAMES, Deck
-from ..core import abilities
-from ..core import events as ev
-from ..core.ai import choose_card, drogoz_discards, mimo_pick
-from ..core.combat import Combatant, end_turn, loser, pay_card, start_turn
-from ..core.effects import (
+from game.core import abilities
+from game.core import events as ev
+from game.core.ai import choose_card, drogoz_discards, mimo_pick
+from game.core.combat import Combatant, end_turn, loser, pay_card, start_turn
+from game.core.effects import (
     AuraEffect,
     BurnEffect,
     DamageEffect,
@@ -30,10 +27,12 @@ from ..core.effects import (
     PoisonEffect,
     StunEffect,
 )
-from ..core.rules import HAND_SIZE, ICE_LIMIT
-from ..legends import LEGENDS
-from ..opponents import rewards
-from ..settings import (
+from game.core.rules import HAND_SIZE, ICE_LIMIT
+from game.data.cards import ARCHETYPE_NAMES, Deck
+from game.data.legends import LEGENDS
+from game.data.opponents import rewards
+from game.engine import sfx
+from game.engine.settings import (
     CANCEL_KEYS,
     CONFIRM_KEYS,
     DOWN_KEYS,
@@ -42,10 +41,12 @@ from ..settings import (
     RIGHT_KEYS,
     UP_KEYS,
 )
-from ..ui import DialogBox
-from .base import Scene
-from .battle_fx import FX, Call, CutIn, Faint, Fly, Hit, Lunge, Msg, SlideIn, Transform, Wait, WaitBars
-from .battle_hud import (
+from game.engine.ui import DialogBox
+from game.graphics import backgrounds, sprites
+from game.graphics import pixelart as art
+from game.scenes.base import Scene
+from game.scenes.battle_fx import FX, Call, CutIn, Faint, Fly, Hit, Lunge, Msg, SlideIn, Transform, Wait, WaitBars
+from game.scenes.battle_hud import (
     ENEMY_FEET,
     ENEMY_HEIGHT,
     ENEMY_LEGEND_H,

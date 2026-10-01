@@ -4,12 +4,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
-from . import abilities
-from . import events as ev
-from .rules import ICE_LIMIT
+from game.core import abilities
+from game.core import events as ev
+from game.core.rules import ICE_LIMIT
 
 if TYPE_CHECKING:
-    from .combat import Combatant
+    from game.core.combat import Combatant
 
 
 class Effect(Protocol):

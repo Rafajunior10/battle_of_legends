@@ -1,10 +1,10 @@
 """Peças de interface usadas pela loja e pelo editor de deck."""
 import pygame
 
-from .. import pixelart as art
-from ..cards import ARCHETYPE_NAMES, RARITY_NAMES
-from ..settings import GAME_W, HIGHLIGHT, TEXT
-from ..ui import draw_box, draw_cursor, draw_text, text_width, wrap
+from game.data.cards import ARCHETYPE_NAMES, RARITY_NAMES
+from game.engine.settings import GAME_W, HIGHLIGHT, TEXT
+from game.engine.ui import draw_box, draw_cursor, draw_text, text_width, wrap
+from game.graphics import pixelart as art
 
 LIST_RECT = pygame.Rect(4, 48, 220, 218)
 INFO_RECT = pygame.Rect(228, 48, GAME_W - 232, 218)

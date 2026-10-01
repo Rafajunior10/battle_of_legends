@@ -1,4 +1,4 @@
-"""Habilidades dos legends (game/legends.py). Regras puras: mudam o estado e devolvem eventos.
+"""Habilidades dos legends (game/data/legends.py). Regras puras: mudam o estado e devolvem eventos.
 
 Ativas (o jogador aciona, 1 vez por turno):
     Drogoz  descarta 3 cartas da mão e cura 15.
@@ -13,12 +13,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from . import events as ev
+from game.core import events as ev
 
 if TYPE_CHECKING:          # só para as dicas de tipo: importar de verdade criaria um ciclo (cards -> effects -> aqui)
-    from ..cards import CardDef
-    from ..legends import LegendDef
-    from .combat import Combatant
+    from game.core.combat import Combatant
+    from game.data.cards import CardDef
+    from game.data.legends import LegendDef
 
 DROGOZ_DISCARD, DROGOZ_HEAL = 3, 15
 MIMO_REVEAL = 3
@@ -30,7 +30,7 @@ COLD_CLONE_ICE = 1                      # gelo no atacante que bate no clone do 
 
 def become(c: Combatant, legend_id: str | None) -> LegendDef | None:
     """Transforma o duelista no legend: vida, força, proteção e energia passam a ser as dele."""
-    from ..legends import LEGENDS
+    from game.data.legends import LEGENDS
     legend = LEGENDS.get(legend_id) if legend_id else None
     if legend is None:
         return None
@@ -73,7 +73,7 @@ def clone_blocks(target: Combatant, card: CardDef) -> bool:
 
 def block_with_clone(user: Combatant, target: Combatant) -> list[ev.Event]:
     """Anula o ataque de `user` no clone do Cold `target`: sem dano, sem efeito, e `user` ganha gelo."""
-    from .effects import IceEffect
+    from game.core.effects import IceEffect
     target.ice_clone = False
     return [ev.CloneBlocked(target), *IceEffect(COLD_CLONE_ICE).apply(target, user)]
 

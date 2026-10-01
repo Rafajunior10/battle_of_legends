@@ -26,7 +26,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"game/pixelfont.py" = ["RUF001"]   # o "ı" (i sem pingo) é a base do "í" na fonte
+"game/graphics/pixelfont.py" = ["RUF001"]   # o "ı" (i sem pingo) é a base do "í" na fonte
 
 [tool.ruff.lint.mccabe]
 max-complexity = 12

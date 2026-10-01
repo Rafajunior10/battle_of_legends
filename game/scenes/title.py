@@ -3,13 +3,14 @@ import math
 
 import pygame
 
-from .. import pixelart as art
-from .. import sfx, tileset
-from ..cards import CARDS
-from ..character import Character
-from ..settings import GAME_H, GAME_W
-from ..ui import Menu, draw_outlined, draw_text, vertical_gradient
-from .base import Scene
+from game.data.cards import CARDS
+from game.data.character import Character
+from game.engine import sfx
+from game.engine.settings import GAME_H, GAME_W
+from game.engine.ui import Menu, draw_outlined, draw_text, vertical_gradient
+from game.graphics import pixelart as art
+from game.graphics import tileset
+from game.scenes.base import Scene
 
 
 class TitleScene(Scene):
@@ -40,19 +41,19 @@ class TitleScene(Scene):
             return
         option = self.menu.options[choice]
         if option == "NOVO JOGO":
-            from .create import CreateScene
+            from game.scenes.create import CreateScene
             self.game.transition_to(lambda: CreateScene(self.game))
         elif option == "CONTINUAR":
             character = Character.load()
             if character is None:
                 sfx.play("error")
                 return
-            from .lobby import LobbyScene
+            from game.scenes.lobby import LobbyScene
             self.game.character = character
             self.game.lobby = LobbyScene(self.game)
             self.game.transition_to(lambda: self.game.lobby)
         elif option == "OPÇÕES":
-            from .options import OptionsScene
+            from game.scenes.options import OptionsScene
             self.game.transition_to(lambda: OptionsScene(self.game, lambda: TitleScene(self.game)))
         else:
             self.game.quit()

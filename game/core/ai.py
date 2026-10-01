@@ -9,9 +9,9 @@ from __future__ import annotations
 import random
 from dataclasses import replace
 
-from ..cards import CardDef
-from . import abilities
-from .combat import Combatant, play_card
+from game.core import abilities
+from game.core.combat import Combatant, play_card
+from game.data.cards import CardDef
 
 DIFFICULTIES = ("easy", "normal", "hard")
 SEARCH_DEPTH = 4          # máximo de cartas simuladas em sequência

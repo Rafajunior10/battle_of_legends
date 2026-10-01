@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import random
 
-from .cards import MAX_CARD_LEVEL, make_deck
-from .legends import default_legend
-from .looks import Look
+from game.data.cards import MAX_CARD_LEVEL, make_deck
+from game.data.legends import default_legend
+from game.data.looks import Look
 
-# look = aparência (game/looks.py): gênero, penteado, cor do cabelo, pele, camisa, calça/saia
+# look = aparência (game/data/looks.py): gênero, penteado, cor do cabelo, pele, camisa, calça/saia
 # requires = treinador que precisa ser vencido antes; ai = easy | normal | hard (core/ai.py)
 WILD_HP_FACTOR = 2.5   # você vira um legend (70-95 PV, força): monstros precisam aguentar mais
 
@@ -136,7 +136,7 @@ def trainer_card_level(level: int) -> int:
 
 def trainer_legend(trainer: dict) -> str:
     """Legend do treinador: o escolhido na ficha dele ou o do arquétipo do deck."""
-    from .character import deck_archetype
+    from game.data.character import deck_archetype
     return trainer.get("legend") or default_legend(deck_archetype(trainer["deck"]) or "raio")
 
 

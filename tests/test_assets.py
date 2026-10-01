@@ -4,7 +4,7 @@ import zipfile
 import pygame
 import pytest
 
-from game import assets
+from game.graphics import assets
 
 SHEET_PATH = "Ninja Adventure - Asset Pack/Actor/Character/Hero/SpriteSheet.png"
 
@@ -70,6 +70,6 @@ def test_todos_os_monstros_usados_existem_no_pacote_real():
     assets.reset()
     if not assets.pack().available:
         pytest.skip("pacote de arte não instalado")
-    from game.opponents import FOREST_WILD_TYPES, WILD_TYPES
+    from game.data.opponents import FOREST_WILD_TYPES, WILD_TYPES
     for _, monster, _, _ in WILD_TYPES + FOREST_WILD_TYPES:
         assert assets.monster_frames(monster) is not None, monster

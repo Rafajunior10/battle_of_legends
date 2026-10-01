@@ -5,7 +5,8 @@ import re
 import pygame
 import pytest
 
-from game import config, pixelfont
+from game.engine import config
+from game.graphics import pixelfont
 
 
 def textos_do_jogo():
@@ -38,7 +39,7 @@ def test_largura_bate_com_o_desenho():
 
 
 def test_fonte_pequena_cabe_nos_nomes_das_cartas():
-    from game.cards import CARD_LIST
+    from game.data.cards import CARD_LIST
     assert all(pixelfont.width(c.short, 10) <= 46 for c in CARD_LIST)
 
 

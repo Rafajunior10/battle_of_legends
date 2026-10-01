@@ -3,8 +3,8 @@ import time
 
 import pytest
 
-from game.cards import CARDS
 from game.core.ai import DIFFICULTIES, choose_card, expected_damage
+from game.data.cards import CARDS
 
 
 def snapshot(c):

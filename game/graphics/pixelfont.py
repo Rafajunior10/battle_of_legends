@@ -1,6 +1,6 @@
 """Fonte pixel feita à mão: letras nítidas na tela pequena (480 x 270), com os acentos do português.
 
-Cada letra é um molde de "#" (pixel aceso) e "." (vazio), igual aos bonecos de game/people.py.
+Cada letra é um molde de "#" (pixel aceso) e "." (vazio), igual aos bonecos de game/graphics/people.py.
   * NORMAL: maiúsculas de 7 px, minúsculas de 5 px, com pernas (g, p, q, y) descendo 2 px.
   * SMALL: só maiúsculas de 5 px, para nomes apertados (o nome dentro da carta).
 Letra acentuada = letra base + acento desenhado por cima (ACCENTS), então não precisa desenhar "á", "ã"...

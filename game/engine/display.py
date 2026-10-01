@@ -8,8 +8,8 @@ import warnings
 
 import pygame
 
-from . import config
-from .settings import GAME_H, GAME_W
+from game.engine import config
+from game.engine.settings import GAME_H, GAME_W
 
 
 class Display:

@@ -8,14 +8,14 @@ import math
 
 import pygame
 
-from .. import backgrounds
-from .. import pixelart as art
-from ..cards import ARCHETYPE_NAMES
-from ..core import abilities
-from ..core.rules import HAND_SIZE, ICE_LIMIT
-from ..settings import GAME_H, GAME_W, HIGHLIGHT
-from ..ui import draw_box, draw_outlined, draw_text, overlay, text_width, wrap
-from .battle_fx import DARK
+from game.core import abilities
+from game.core.rules import HAND_SIZE, ICE_LIMIT
+from game.data.cards import ARCHETYPE_NAMES
+from game.engine.settings import GAME_H, GAME_W, HIGHLIGHT
+from game.engine.ui import draw_box, draw_outlined, draw_text, overlay, text_width, wrap
+from game.graphics import backgrounds
+from game.graphics import pixelart as art
+from game.scenes.battle_fx import DARK
 
 GREEN = (72, 200, 96)
 FIELD_H = backgrounds.BATTLE_H                  # parte de cima: o campo; embaixo: o painel das cartas

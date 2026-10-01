@@ -1,7 +1,8 @@
 """Aparência dos personagens ("boneco de papel"): só dados, sem Pygame.
 
-Um Look diz o penteado, a pele, as peças de roupa (e as cores) e o chapéu. Quem desenha é game/mana_seed.py
-(arte do pacote Mana Seed, em camadas, com as roupas de game/wardrobe.py); sem o pacote, game/people.py.
+Um Look diz o penteado, a pele, as peças de roupa (e as cores) e o chapéu. Quem desenha é
+game/graphics/mana_seed.py (arte do pacote Mana Seed, em camadas, com as roupas de game/graphics/wardrobe.py);
+sem o pacote, game/graphics/people.py.
 Trocar de roupa (a futura loja de roupas) é só trocar os campos aqui.
 """
 from __future__ import annotations
@@ -32,7 +33,7 @@ HATS = {
     "mago": ["azul", "marrom", "verde", "roxo", "amarelo"],
 }
 
-# Peças de roupa (montadas em game/wardrobe.py) e as suas cores
+# Peças de roupa (montadas em game/graphics/wardrobe.py) e as suas cores
 CLOTH_COLORS = {   # cores vivas, estilo NES
     "vermelho": ((232, 60, 56), (158, 36, 40)), "azul": ((56, 116, 232), (36, 72, 168)),
     "verde": ((64, 184, 80), (40, 120, 56)), "amarelo": ((252, 204, 56), (200, 148, 32)),

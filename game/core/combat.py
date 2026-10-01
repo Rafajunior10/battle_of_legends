@@ -11,13 +11,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from ..cards import CardDef, Deck
-from . import abilities
-from . import events as ev
-from .rules import HAND_MAX, HAND_SIZE, MAX_ENERGY
+from game.core import abilities
+from game.core import events as ev
+from game.core.rules import HAND_MAX, HAND_SIZE, MAX_ENERGY
+from game.data.cards import CardDef, Deck
 
 if TYPE_CHECKING:
-    from ..legends import LegendDef
+    from game.data.legends import LegendDef
 
 
 @dataclass(eq=False)

@@ -1,7 +1,7 @@
 import pygame
 
-from game import config
-from game.config import CONFIRM_KEYS, KEY_DIRS, RUN_KEYS, UP_KEYS
+from game.engine import config
+from game.engine.config import CONFIRM_KEYS, KEY_DIRS, RUN_KEYS, UP_KEYS
 
 
 def test_trocar_tecla_vale_na_hora():

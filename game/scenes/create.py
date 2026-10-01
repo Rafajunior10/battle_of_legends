@@ -3,11 +3,8 @@ from dataclasses import asdict
 
 import pygame
 
-from .. import pixelart as art
-from .. import sfx, sprites
-from ..character import Character
-from ..config import action_label
-from ..looks import (
+from game.data.character import Character
+from game.data.looks import (
     BOTTOMS,
     CLOTH_COLORS,
     DEFAULT_HAIR,
@@ -20,9 +17,13 @@ from ..looks import (
     TOPS,
     Look,
 )
-from ..settings import CANCEL_KEYS, CONFIRM_KEYS, DOWN_KEYS, GAME_H, GAME_W, LEFT_KEYS, RIGHT_KEYS, UP_KEYS
-from ..ui import draw_box, draw_cursor, draw_outlined, draw_text, vertical_gradient, wrap
-from .base import Scene
+from game.engine import sfx
+from game.engine.config import action_label
+from game.engine.settings import CANCEL_KEYS, CONFIRM_KEYS, DOWN_KEYS, GAME_H, GAME_W, LEFT_KEYS, RIGHT_KEYS, UP_KEYS
+from game.engine.ui import draw_box, draw_cursor, draw_outlined, draw_text, vertical_gradient, wrap
+from game.graphics import pixelart as art
+from game.graphics import sprites
+from game.scenes.base import Scene
 
 COLORS = list(CLOTH_COLORS)
 # Cada opção: (rótulo, campo do Look, escolhas). As escolhas podem depender da aparência atual (uma função):
@@ -149,7 +150,7 @@ class CreateScene(Scene):
         sfx.play("cursor")
 
     def back(self):
-        from .title import TitleScene
+        from game.scenes.title import TitleScene
         pygame.key.stop_text_input()
         sfx.play("cancel")
         self.game.transition_to(lambda: TitleScene(self.game))
@@ -161,7 +162,7 @@ class CreateScene(Scene):
             self.warning = "Escolha um nome antes de começar!"
             self.row = self.name_row
             return
-        from .lobby import LobbyScene
+        from game.scenes.lobby import LobbyScene
         pygame.key.stop_text_input()
         sfx.play("save")
         character = Character(name=name)

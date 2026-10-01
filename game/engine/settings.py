@@ -5,11 +5,11 @@ TITLE = "Card Quest"
 GAME_W, GAME_H = 480, 270   # resolução interna 16:9 (x2 = 960x540, x4 = 1920x1080)
 TILE = 16
 
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # card-quest/
 SAVE_PATH = os.path.join(ROOT_DIR, "save.json")
 
 # Controles (estilo GBA: Z = A, X = B, ENTER = START). Configuráveis no menu OPÇÕES.
-from .config import (  # noqa: E402,F401
+from game.engine.config import (  # noqa: E402,F401
                      CANCEL_KEYS,
                      CONFIRM_KEYS,
                      DOWN_KEYS,

@@ -1,8 +1,8 @@
 """Interface estilo GBA: fontes, caixas de diálogo e menus com cursor."""
 import pygame
 
-from . import pixelfont, sfx
-from .settings import (
+from game.engine import sfx
+from game.engine.settings import (
     BOX_BORDER,
     BOX_FILL,
     BOX_INNER,
@@ -15,6 +15,7 @@ from .settings import (
     TEXT_SHADOW,
     UP_KEYS,
 )
+from game.graphics import pixelfont
 
 
 def text_width(text, size=16):
@@ -45,7 +46,7 @@ def render_text(text, size, color):
 
 
 def draw_text(surf, text, pos, color=TEXT, size=16, shadow=TEXT_SHADOW, align="left"):
-    """Texto na fonte pixel (game/pixelfont.py) com a sombra clássica dos jogos de GBA."""
+    """Texto na fonte pixel (game/graphics/pixelfont.py) com a sombra clássica dos jogos de GBA."""
     img = render_text(text, size, color)
     x, y = _aligned(pos[0], img.get_width(), align), pos[1]
     if shadow:

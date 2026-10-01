@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pygame
 
-from .looks import CLOTH_COLORS, HAIR_COLORS, SHOE_COLORS, SKIN_TONES, Look
+from game.data.looks import CLOTH_COLORS, HAIR_COLORS, SHOE_COLORS, SKIN_TONES, Look
 
 W, H = 20, 40
 TOP_PAD = 2                     # linhas livres acima da cabeça (para topete, coque, black power...)

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pygame
 
-from .ui import draw_text, text_width
+from game.engine.ui import draw_text, text_width
 
 OUTLINE = (20, 27, 27)          # o mesmo contorno dos sprites do pacote
 GLASS = ((88, 150, 200), (150, 205, 235), (220, 240, 250))   # vidro: escuro, meio, reflexo

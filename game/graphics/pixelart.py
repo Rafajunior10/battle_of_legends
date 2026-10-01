@@ -5,7 +5,7 @@ paleta e '.' é transparente. Assim dá para editar a arte direto aqui no códig
 """
 import pygame
 
-from .ui import dither_gradient, draw_outlined, draw_text, text_width
+from game.engine.ui import dither_gradient, draw_outlined, draw_text, text_width
 
 K = (40, 40, 48)   # contorno
 

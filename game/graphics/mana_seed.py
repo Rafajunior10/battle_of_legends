@@ -3,7 +3,7 @@
 É um "paper doll" (boneca de papel): várias folhas de sprites com o MESMO desenho de quadros, uma por cima
 da outra, na ordem do guia do autor:
     corpo (0bas)  ->  roupa  ->  cabelo (4har)  ->  chapéu (5hat)
-As roupas (camisa, regata, saia...) e os cortes raspado/longo são montados em game/wardrobe.py a partir
+As roupas (camisa, regata, saia...) e os cortes raspado/longo são montados em game/graphics/wardrobe.py a partir
 das peças do pacote.
 Como todas as folhas têm a mesma animação, trocar uma peça é só trocar o arquivo daquela camada.
 As cores vêm prontas do artista: cada arquivo `_vNN` é uma variação de cor (pele, cabelo, roupa...).
@@ -11,7 +11,7 @@ As cores vêm prontas do artista: cada arquivo `_vNN` é uma variação de cor (
 Folha (page 1) = 512 x 512, quadros de 64 x 64:
     linhas 0-3: parado (coluna 0), olhando para baixo, cima, direita e esquerda
     linhas 4-7: andando (colunas 0-5), nas mesmas 4 direções
-Sem a pasta assets/mana_seed, quem desenha as pessoas é game/people.py (desenho por código).
+Sem a pasta assets/mana_seed, quem desenha as pessoas é game/graphics/people.py (desenho por código).
 """
 from __future__ import annotations
 
@@ -19,9 +19,9 @@ import os
 
 import pygame
 
-from . import wardrobe
-from .looks import HATS, Look
-from .settings import ROOT_DIR
+from game.data.looks import HATS, Look
+from game.engine.settings import ROOT_DIR
+from game.graphics import wardrobe
 
 PAGE_DIR = os.path.join(ROOT_DIR, "assets", "mana_seed", "char_a_p1")
 FRAME = 64
@@ -30,7 +30,7 @@ WALK_ROW = 4                                     # primeira linha da caminhada
 WALK_FRAMES = 6
 CROP = pygame.Rect(16, 1, 32, 44)                # recorte do quadro 64 x 64: os pés ficam na última linha
 
-# Escolhas da aparência (game/looks.py) -> arquivo do pacote: código da peça + variação de cor
+# Escolhas da aparência (game/data/looks.py) -> arquivo do pacote: código da peça + variação de cor
 SKINS = ["v01", "v02", "v03", "v04", "v05", "v06", "v07"]            # 7 tons humanos (looks.SKIN_TONES)
 HAIRS = {"curto": "dap1", "chanel": "bob1", "raspado": "dap1", "longo": "bob1", "careca": None}
 HAIR_VARIANTS = {
@@ -70,7 +70,7 @@ def files(look: Look) -> dict:
 
 
 def layers(look: Look) -> list[pygame.Surface]:
-    """As camadas, de baixo para cima: corpo -> roupas (game/wardrobe.py) -> cabelo -> chapéu."""
+    """As camadas, de baixo para cima: corpo -> roupas (game/graphics/wardrobe.py) -> cabelo -> chapéu."""
     look = look.fitted()
     used = files(look)
     stack = [_image(used["body"]), wardrobe.clothes_layer(look)]

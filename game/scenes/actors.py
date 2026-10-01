@@ -1,8 +1,8 @@
 """Personagens que andam no mapa em grade (estilo Pokémon)."""
 import random
 
-from ..settings import TILE
-from ..world import DIR_VECTORS
+from game.data.world import DIR_VECTORS
+from game.engine.settings import TILE
 
 WALK_TIME = 0.24     # segundos para andar 1 tile
 RUN_TIME = 0.13

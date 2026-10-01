@@ -1,35 +1,19 @@
 """Mundo andável: Vila Carta, Bosque Sussurro e o que vier. Você anda, conversa, desafia treinadores,
 entra na loja e no coliseu e passa de um mapa a outro pelas passagens.
 
-Os dados dos mapas e das falas ficam em game/world.py; aqui só o comportamento.
+Os dados dos mapas e das falas ficam em game/data/world.py; aqui só o comportamento.
 """
 import random
 
 import pygame
 
-from .. import buildings, sfx, sprites, tilemap, tileset
-from .. import pixelart as art
-from ..cards import CARDS
-from ..config import action_label
-from ..core import economy
-from ..core.economy import ShopError
-from ..core.tournament import ROUND_TITLES, ROUNDS, TOURNAMENT_PRIZE, XP_MULTIPLIER, Tournament
-from ..opponents import TRAINERS, random_wild, trainer_spec
-from ..props import OBJECTS
-from ..settings import (
-    CANCEL_KEYS,
-    CONFIRM_KEYS,
-    GAME_H,
-    GAME_W,
-    INTERACT_KEYS,
-    KEY_DIRS,
-    MENU_KEYS,
-    PROFILE_KEYS,
-    RUN_KEYS,
-    TILE,
-)
-from ..ui import Menu, Prompt, draw_box, draw_text, text_width
-from ..world import (
+from game.core import economy
+from game.core.economy import ShopError
+from game.core.tournament import ROUND_TITLES, ROUNDS, TOURNAMENT_PRIZE, XP_MULTIPLIER, Tournament
+from game.data.cards import CARDS
+from game.data.opponents import TRAINERS, random_wild, trainer_spec
+from game.data.props import OBJECTS
+from game.data.world import (
     BETO_TIPS,
     COLISEUM_DOOR,
     DIR_VECTORS,
@@ -43,10 +27,27 @@ from ..world import (
     TRAINER_TALK,
     WATER,
 )
-from .actors import NPC, RUN_TIME, WALK_TIME, Actor
-from .base import Scene
-from .common import draw_bets
-from .profile import draw_profile
+from game.engine import sfx
+from game.engine.config import action_label
+from game.engine.settings import (
+    CANCEL_KEYS,
+    CONFIRM_KEYS,
+    GAME_H,
+    GAME_W,
+    INTERACT_KEYS,
+    KEY_DIRS,
+    MENU_KEYS,
+    PROFILE_KEYS,
+    RUN_KEYS,
+    TILE,
+)
+from game.engine.ui import Menu, Prompt, draw_box, draw_text, text_width
+from game.graphics import buildings, sprites, tilemap, tileset
+from game.graphics import pixelart as art
+from game.scenes.actors import NPC, RUN_TIME, WALK_TIME, Actor
+from game.scenes.base import Scene
+from game.scenes.common import draw_bets
+from game.scenes.profile import draw_profile
 
 ENCOUNTER_RATE = 0.12
 SAFE_STEPS = 3             # passos sem encontro depois de uma batalha
@@ -227,7 +228,7 @@ class LobbyScene(Scene):
         option = self.menu.options[result] if result >= 0 else "FECHAR"
         self.menu = None
         if option == "DECK":
-            from .deckedit import DeckEditScene
+            from game.scenes.deckedit import DeckEditScene
             self.game.transition_to(lambda: DeckEditScene(self.game, lambda: self))
         elif option == "FICHA":
             self.showing_profile = True
@@ -236,10 +237,10 @@ class LobbyScene(Scene):
             sfx.play("save")
             self.say("Jogo salvo com sucesso!")
         elif option == "OPÇÕES":
-            from .options import OptionsScene
+            from game.scenes.options import OptionsScene
             self.game.transition_to(lambda: OptionsScene(self.game, lambda: self))
         elif option == "SAIR":                   # salva e volta para o menu inicial
-            from .title import TitleScene
+            from game.scenes.title import TitleScene
             self.ch.save()
             self.game.transition_to(lambda: TitleScene(self.game))
 
@@ -332,7 +333,7 @@ class LobbyScene(Scene):
         self.say(["Você entrou em casa e descansou um pouco.", "Jogo salvo!"])
 
     def enter_shop(self):
-        from .shop import ShopScene
+        from game.scenes.shop import ShopScene
         sfx.play("confirm")
         self.game.transition_to(lambda: ShopScene(self.game, lambda: self))
 

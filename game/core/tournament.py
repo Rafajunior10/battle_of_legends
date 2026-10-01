@@ -9,9 +9,9 @@ from __future__ import annotations
 import random
 from dataclasses import dataclass, field
 
-from ..cards import ARCHETYPE_NAMES, CARD_LIST, DECK_MIN, MAX_CARD_LEVEL, MAX_COPIES, UTILITY
-from ..legends import default_legend
-from ..looks import (
+from game.data.cards import ARCHETYPE_NAMES, CARD_LIST, DECK_MIN, MAX_CARD_LEVEL, MAX_COPIES, UTILITY
+from game.data.legends import default_legend
+from game.data.looks import (
     BOTTOMS,
     CLOTH_COLORS,
     GENDERS,
@@ -23,7 +23,7 @@ from ..looks import (
     TOPS,
     Look,
 )
-from ..opponents import trainer_hp
+from game.data.opponents import trainer_hp
 
 ROUNDS = 3
 TOURNAMENT_PRIZE = 500

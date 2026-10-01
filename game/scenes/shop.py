@@ -3,17 +3,17 @@ import math
 
 import pygame
 
-from .. import pixelart as art
-from .. import sfx
-from ..cards import ARCHETYPE_NAMES, CARDS, ELEMENTS, MAX_COPIES, PACKS, RARITY_NAMES, SHOP_STOCK, UTILITY
-from ..config import action_label
-from ..core import economy
-from ..core.economy import ShopError
-from ..legends import LEGENDS
-from ..settings import CANCEL_KEYS, CONFIRM_KEYS, DOWN_KEYS, GAME_H, GAME_W, LEFT_KEYS, RIGHT_KEYS, UP_KEYS
-from ..ui import Prompt, draw_box, draw_outlined, draw_text, overlay, vertical_gradient, wrap
-from .base import Scene
-from .common import (
+from game.core import economy
+from game.core.economy import ShopError
+from game.data.cards import ARCHETYPE_NAMES, CARDS, ELEMENTS, MAX_COPIES, PACKS, RARITY_NAMES, SHOP_STOCK, UTILITY
+from game.data.legends import LEGENDS
+from game.engine import sfx
+from game.engine.config import action_label
+from game.engine.settings import CANCEL_KEYS, CONFIRM_KEYS, DOWN_KEYS, GAME_H, GAME_W, LEFT_KEYS, RIGHT_KEYS, UP_KEYS
+from game.engine.ui import Prompt, draw_box, draw_outlined, draw_text, overlay, vertical_gradient, wrap
+from game.graphics import pixelart as art
+from game.scenes.base import Scene
+from game.scenes.common import (
     INFO_RECT,
     LIST_RECT,
     LIST_ROWS,
@@ -325,7 +325,7 @@ class ShopScene(Scene):
         self.prompt.ask(f"Vender {card.name.upper()} por {card.sell_price} BETS?", done)
 
     def edit_deck(self, slot):
-        from .deckedit import DeckEditScene
+        from game.scenes.deckedit import DeckEditScene
         self.game.transition_to(lambda: DeckEditScene(self.game, lambda: self, slot))
 
     # ------------------------------------------------------------ update / desenho

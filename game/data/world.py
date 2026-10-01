@@ -9,10 +9,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from .core.tournament import ROUNDS, TOURNAMENT_PRIZE, XP_MULTIPLIER
-from .looks import Look
-from .opponents import FOREST_WILD_TYPES, WILD_TYPES
-from .props import OBJECTS
+from game.core.tournament import ROUNDS, TOURNAMENT_PRIZE, XP_MULTIPLIER
+from game.data.looks import Look
+from game.data.opponents import FOREST_WILD_TYPES, WILD_TYPES
+from game.data.props import OBJECTS
 
 SOLID_TILES = frozenset("TWFSR")
 TALL_GRASS = ","
@@ -63,7 +63,7 @@ class Warp:
 class Helper:
     """NPC que não duela."""
     spot: Spot
-    look: Look                      # aparência (game/looks.py)
+    look: Look                      # aparência (game/data/looks.py)
 
 
 @dataclass(frozen=True)

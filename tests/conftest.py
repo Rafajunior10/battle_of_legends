@@ -7,11 +7,11 @@ import pytest
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
-from game import character as character_module
-from game import config
-from game.cards import Deck
-from game.character import Character
 from game.core.combat import Combatant
+from game.data import character as character_module
+from game.data.cards import Deck
+from game.data.character import Character
+from game.engine import config
 
 
 @pytest.fixture
@@ -35,7 +35,7 @@ def hero(save_path):
 @pytest.fixture
 def make_fighter(rng):
     def make(deck=("murrao",) * 10, hp=30, name="A", hand=(), energy=3, **kwargs):
-        from game.cards import CARDS
+        from game.data.cards import CARDS
         c = Combatant(name, 1, hp, Deck(list(deck), rng), energy=energy, **kwargs)
         c.hand = [CARDS[i] for i in hand]
         return c

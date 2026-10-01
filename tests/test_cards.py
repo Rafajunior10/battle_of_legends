@@ -2,7 +2,8 @@ import random
 
 import pytest
 
-from game.cards import (
+from game.core.effects import DamageEffect, IceCloneEffect, PoisonEffect, StunEffect
+from game.data.cards import (
     ARCHETYPE_NAMES,
     CARD_LIST,
     CARDS,
@@ -16,8 +17,7 @@ from game.cards import (
     make_deck,
     open_pack,
 )
-from game.character import archetypes_ok
-from game.core.effects import DamageEffect, IceCloneEffect, PoisonEffect, StunEffect
+from game.data.character import archetypes_ok
 
 # (id, arquétipo, custo, dano, defesa, aura, raridade) — conferido com a planilha de regras
 SPREADSHEET = [

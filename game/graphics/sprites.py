@@ -1,9 +1,10 @@
 """Ponto único para pegar desenhos de personagens, monstros e rostos.
 
   * Pessoas (você e os NPCs): bonecos do Mana Seed montados em camadas (corpo, roupa, cabelo, chapéu)
-    pela aparência escolhida (game/mana_seed.py). Sem o pacote, bonecos desenhados por código (game/people.py).
-  * Monstros: vêm do pacote Ninja Adventure (game/assets.py); sem ele, viram a gosma desenhada por
-    código (game/pixelart.py) — o "fallback".
+    pela aparência escolhida (game/graphics/mana_seed.py). Sem o pacote, bonecos desenhados por código
+    (game/graphics/people.py).
+  * Monstros: vêm do pacote Ninja Adventure (game/graphics/assets.py); sem ele, viram a gosma desenhada por
+    código (game/graphics/pixelart.py) — o "fallback".
 """
 from __future__ import annotations
 
@@ -11,10 +12,10 @@ import os
 
 import pygame
 
-from . import assets, mana_seed, people
-from . import pixelart as art
-from .looks import Look
-from .settings import ROOT_DIR
+from game.data.looks import Look
+from game.engine.settings import ROOT_DIR
+from game.graphics import assets, mana_seed, people
+from game.graphics import pixelart as art
 
 _cache: dict = {}
 

@@ -10,16 +10,17 @@ from collections import Counter
 
 import pygame
 
-from .. import pixelart as art
-from .. import sfx, sprites
-from ..cards import ARCHETYPE_NAMES, CARD_LIST, CARDS, DECK_MAX, DECK_MIN, ELEMENTS, UTILITY
-from ..character import DECK_SLOTS, DeckError
-from ..config import action_label
-from ..legends import LEGENDS, legends_for
-from ..settings import CANCEL_KEYS, CONFIRM_KEYS, DOWN_KEYS, GAME_H, GAME_W, LEFT_KEYS, RIGHT_KEYS, UP_KEYS
-from ..ui import Prompt, draw_box, draw_text, vertical_gradient, wrap
-from .base import Scene
-from .common import (
+from game.data.cards import ARCHETYPE_NAMES, CARD_LIST, CARDS, DECK_MAX, DECK_MIN, ELEMENTS, UTILITY
+from game.data.character import DECK_SLOTS, DeckError
+from game.data.legends import LEGENDS, legends_for
+from game.engine import sfx
+from game.engine.config import action_label
+from game.engine.settings import CANCEL_KEYS, CONFIRM_KEYS, DOWN_KEYS, GAME_H, GAME_W, LEFT_KEYS, RIGHT_KEYS, UP_KEYS
+from game.engine.ui import Prompt, draw_box, draw_text, vertical_gradient, wrap
+from game.graphics import pixelart as art
+from game.graphics import sprites
+from game.scenes.base import Scene
+from game.scenes.common import (
     ROW_H,
     SUB_INFO_RECT,
     SUB_LIST_RECT,
