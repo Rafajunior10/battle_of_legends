@@ -35,7 +35,9 @@ game-architecture, game-ai, game-ui-pygame, game-testing, game-design, game-debu
 - **Repositório**: github.com/Rafajunior10/battle_of_legends. `assets/mana_seed/` e `assets/static_creatures/`
   ficam fora do git (licença); o jogo e os testes precisam funcionar sem elas.
 - **Online** (`game/net/`): mundo compartilhado. `protocol.py` (mensagens JSON por linha), `server.py` (roda em
-  quem hospeda, numa thread; só guarda posições e repassa), `client.py` (thread de leitura + fila `poll()`).
+  quem hospeda, numa thread; repassa posições e guarda contas), `database.py` (SQLite `world.db`: contas com
+  senha em hash + personagem em JSON), `client.py` (`open`/`host` -> `authenticate` -> `enter`; depois thread de
+  leitura + fila `poll()`). Online, `Character.save()` manda para o servidor (`character.remote_save`).
   O lobby manda `move` a cada passo (`send_position`) e anima os outros com `actors.RemotePlayer`. Mudou o
   formato das mensagens? Suba `protocol.VERSION`. Testes de verdade com sockets em `tests/test_net.py` e
   `tests/test_online.py`. Próximo passo planejado: duelo online entre jogadores (fase 2).

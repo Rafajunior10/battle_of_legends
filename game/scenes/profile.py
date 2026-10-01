@@ -144,10 +144,10 @@ def _panel(t: Theme) -> pygame.Surface:
     pygame.draw.ellipse(s, t.dark, pedestal.inflate(4, 4))
     pygame.draw.ellipse(s, t.border, pedestal)
     pygame.draw.ellipse(s, t.bottom, pedestal.inflate(-8, -6))
-    plates = pygame.Surface((BOX_W - 122, 14), pygame.SRCALPHA)                     # placas das linhas
+    plates = pygame.Surface((BOX_W - 122, 12), pygame.SRCALPHA)                     # placas das linhas
     pygame.draw.rect(plates, (*t.dark, 150), plates.get_rect(), border_radius=3)
-    for i in range(8):
-        s.blit(plates, (110, 34 + i * 14))
+    for i in range(9):
+        s.blit(plates, (110, 33 + i * 13))
     bottom = pygame.Surface((BOX_W - 24, 34), pygame.SRCALPHA)
     pygame.draw.rect(bottom, (*t.dark, 150), bottom.get_rect(), border_radius=4)
     s.blit(bottom, (12, 150))
@@ -195,10 +195,11 @@ def draw_profile(surf, ch, portrait, time: float = 0.0):
         ("BETS", str(ch.bets)),
         ("XP BATALHA", str(ch.battle_xp)),
         ("V / D", f"{ch.wins} / {ch.losses}"),
+        ("COLISEU", f"{ch.coliseum_wins} vitória" + ("" if ch.coliseum_wins == 1 else "s")),
         ("COLEÇÃO", f"{len(ch.collection)} cartas"),
     ]
     for i, (label, value) in enumerate(rows):
-        y = oy + 36 + i * 14
+        y = oy + 34 + i * 13
         draw_text(surf, label, (ox + 116, y), color=t.label, shadow=t.dark)
         draw_text(surf, value, (box.right - 18, y), color=TEXT, shadow=t.dark, align="right")
     badges = ", ".join(TRAINERS[name]["name"] for name in ch.beaten if name in TRAINERS) or "nenhum ainda"

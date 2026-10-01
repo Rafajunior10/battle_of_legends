@@ -423,3 +423,33 @@ def test_batalha_completa_contra_legends_com_habilidade(game, drive, lobby, trai
     scene = BattleScene(game, trainer_spec(trainer), lambda won, spec: lobby)
     game.change_scene(scene)
     drive.play_battle(max_frames=60_000)
+
+
+def test_campeao_do_coliseu_conta_vitoria_na_ficha(game, lobby):
+    from game.core.tournament import ROUNDS, Tournament
+    ch = game.character
+    lobby.tournament = Tournament(ch.level)
+    lobby.tournament.round = ROUNDS - 1                       # chegou na final
+    bets = ch.bets
+    lobby.after_tournament_battle(True, {})
+    assert ch.coliseum_wins == 1 and ch.bets > bets
+    assert Character.load().coliseum_wins == 1                # ficou salvo
+    lobby.showing_profile = True
+    lobby.draw(game.screen)                                   # a ficha mostra a linha COLISEU
+
+
+def test_save_antigo_sem_coliseu_carrega_com_zero(save_path):
+    import json
+    save_path.write_text(json.dumps({"name": "Velho", "level": 3}), encoding="utf-8")
+    assert Character.load().coliseum_wins == 0
+    assert Character.from_dict({"name": "X", "coliseum_wins": -4}).coliseum_wins == 0
+
+
+def test_criacao_online_entrega_o_personagem(game):
+    """Online, a criação não salva no PC: entrega o personagem novo para a tela de login."""
+    from game.scenes.create import CreateScene
+    created = []
+    scene = CreateScene(game, on_created=created.append)
+    scene.name = "Nova"
+    scene.finish()
+    assert [c.name for c in created] == ["Nova"]

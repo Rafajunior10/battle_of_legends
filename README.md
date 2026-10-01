@@ -33,14 +33,20 @@ python -m ruff check .  # padrão de código (regras em pyproject.toml)
 ## Jogar online (mundo compartilhado)
 
 Vocês andam juntos pela vila e pelo bosque, se veem em tempo real (com o nome em cima da cabeça), mandam
-falas rápidas e veem quando o outro está em batalha. Cada um usa o próprio save (BETS, cartas e decks).
+falas rápidas e veem quando o outro está em batalha.
 
-1. Os dois instalam o **Radmin VPN** (grátis) e entram na mesma rede dele.
+Cada jogador tem uma **conta** (usuário e senha) com **um personagem**. As contas e os personagens ficam
+num banco SQLite (`world.db`) no PC de quem hospeda; a senha é guardada só como hash (PBKDF2).
+
+1. Pela internet, os dois instalam o **Radmin VPN** (grátis) e entram na mesma rede dele.
    Na mesma casa (mesmo Wi-Fi) não precisa disso.
-2. Quem hospeda: título > **ONLINE** > **HOSPEDAR**. Aparecem os endereços deste PC
-   (o do Radmin começa com `26.`). Na primeira vez, o Windows pergunta se o jogo pode usar a rede: permita.
-3. O amigo: título > **ONLINE** > **ENTRAR** e digita o endereço de quem hospeda.
-4. Para falar com o outro, fique de frente para ele e aperte o botão A.
+2. Quem hospeda: título > **JOGAR** > **HOSPEDAR**. Aparecem os endereços deste PC
+   (na mesma casa, o que começa com `192.168.`). Na primeira vez, o Windows pergunta se o jogo pode usar a
+   rede: permita em "Redes privadas".
+3. O amigo: título > **JOGAR** > **ENTRAR** e digita o endereço de quem hospeda.
+4. Login: digite usuário e senha e vá em **ENTRAR**; na primeira vez, **CRIAR CONTA**. Conta nova pode
+   importar o personagem salvo no PC (`save.json`) ou criar um novo.
+5. Para falar com o outro, fique de frente para ele e aperte o botão A.
 
 Os dois precisam estar com a **mesma versão** do jogo (baixem a última do GitHub).
 
@@ -149,13 +155,13 @@ game/
     transition.py, ui.py     transições, caixas de texto, menus
     config.py, settings.py   opções (config.json), resolução, cores e controles
     sfx.py                   música e sons gerados por código
-  net/                       ONLINE: protocolo, servidor (quem hospeda) e cliente
+  net/                       ONLINE: protocolo, servidor (quem hospeda), cliente e banco (contas)
   scenes/                    TELAS
     battle.py                batalha: fila de passos, turnos, narração e habilidades
     battle_hud.py            desenho da batalha (painéis, marcadores, mão, botões)
     battle_fx.py             animações: transformação, faixa do legend, golpes, partículas
     lobby.py, actors.py      mundo andável e personagens em grade
-    online.py                tela ONLINE: hospedar ou entrar no mundo de um amigo
+    online.py                tela JOGAR: hospedar ou entrar no mundo, login e criação de conta
     shop.py, deckedit.py, create.py, profile.py, options.py, title.py, common.py
 tests/                       pytest
 ```

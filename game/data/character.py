@@ -37,6 +37,9 @@ MAX_LEVEL = 20
 
 CATALOG_ORDER = {c.id: i for i, c in enumerate(CARD_LIST)}
 
+# Para onde vai o save quando o jogo está online: uma função que recebe o personagem em dicionário
+# (game.net.client.WorldClient.save_character). None = grava no save.json (testes e modo dev).
+remote_save = None
 
 class DeckError(Exception):
     """Mudança de deck recusada; a mensagem é mostrada ao jogador."""
@@ -73,6 +76,7 @@ class Character:
     hat_color: str = ""
     wins: int = 0
     losses: int = 0
+    coliseum_wins: int = 0                        # vezes que foi campeão do torneio do Coliseu
     beaten: list[str] = field(default_factory=list)   # treinadores já derrotados
     bets: int = START_BETS                        # moeda do jogo
     level: int = 1
@@ -220,8 +224,26 @@ class Character:
 
     # ------------------------------------------------------------ save
     def save(self) -> None:
+        """Online: manda para o servidor (remote_save). Sem conexão (testes, modo dev): grava o save.json."""
+        if remote_save is not None:
+            remote_save(asdict(self))
+            return
         with open(SAVE_PATH, "w", encoding="utf-8") as f:
             json.dump(asdict(self), f, ensure_ascii=False, indent=2)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Character | None:
+        """Personagem a partir dos dados salvos (servidor ou save.json), já conferido e migrado."""
+        try:
+            known = {f.name for f in fields(cls)}
+            ch = cls(**{k: v for k, v in data.items() if k in known})
+        except (TypeError, AttributeError):
+            return None
+        if "decks" not in data and "deck" in data:   # save da versão antiga (um deck só)
+            ch.collection = list(data["deck"])        # sanitize() reembolsa as cartas que saíram do jogo
+            ch.decks = [list(data["deck"])] + [[] for _ in range(DECK_SLOTS - 1)]
+        ch.sanitize()
+        return ch
 
     @staticmethod
     def exists() -> bool:
@@ -232,15 +254,9 @@ class Character:
         try:
             with open(SAVE_PATH, encoding="utf-8") as f:
                 data = json.load(f)
-            known = {f.name for f in fields(cls)}
-            ch = cls(**{k: v for k, v in data.items() if k in known})
-        except (OSError, ValueError, TypeError):
+        except (OSError, ValueError):
             return None
-        if "decks" not in data and "deck" in data:   # save da versão antiga (um deck só)
-            ch.collection = list(data["deck"])        # sanitize() reembolsa as cartas que saíram do jogo
-            ch.decks = [list(data["deck"])] + [[] for _ in range(DECK_SLOTS - 1)]
-        ch.sanitize()
-        return ch
+        return cls.from_dict(data) if isinstance(data, dict) else None
 
     def sanitize(self) -> None:
         """Garante que o save é coerente: cartas existem e os decks cabem na coleção."""
@@ -283,5 +299,6 @@ class Character:
         self.level = max(1, min(MAX_LEVEL, int(self.level)))
         self.bets = max(0, int(self.bets))
         self.battle_xp = max(0, int(self.battle_xp))
+        self.coliseum_wins = max(0, int(self.coliseum_wins))
         self.card_levels = {c: max(1, min(MAX_CARD_LEVEL, int(n))) for c, n in dict(self.card_levels).items()
                             if c in CARDS}

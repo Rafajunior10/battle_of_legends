@@ -35,7 +35,7 @@ FPS_OPTIONS = [60, 120, 144, 0]     # 0 = sem limite (o vsync ainda segura no ri
 
 bindings = {k: list(v) for k, v in DEFAULT_BINDINGS.items()}
 display = {"fullscreen": False, "scale": 3, "fps": 60, "show_fps": False}
-online = {"address": ""}       # último endereço digitado em ONLINE > ENTRAR
+online = {"address": "", "user": ""}   # último endereço e usuário digitados na tela JOGAR
 
 
 class KeySet:
@@ -124,8 +124,9 @@ def load():
             data = json.load(f)
     except (OSError, ValueError):
         return
-    address = data.get("online", {}).get("address", "")
-    online["address"] = address if isinstance(address, str) else ""
+    for key in online:
+        value = data.get("online", {}).get(key, "")
+        online[key] = value if isinstance(value, str) else ""
     disp = data.get("display", {})
     display["fullscreen"] = bool(disp.get("fullscreen", False))
     if disp.get("scale") in SCALES:

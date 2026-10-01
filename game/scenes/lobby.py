@@ -59,9 +59,9 @@ BUMP_COOLDOWN = 0.35
 BANNER_TIME = 3.0
 MENU_OPTIONS = ["DECK", "FICHA", "SALVAR", "OPÇÕES", "FECHAR", "SAIR"]
 CREAM, WHITE_WALL, SAND = (244, 236, 220), (248, 244, 236), (232, 220, 196)
-# Construções desenhadas por código (buildings.py): recebem o texto da placa
 LOOK_KEYS = {f.name for f in fields(Look)}     # campos aceitos na aparência que vem pela rede
 NOTICE_TIME = 3.0                              # segundos do aviso "FULANO entrou no mundo!"
+# Construções desenhadas por código (buildings.py): recebem o texto da placa
 
 BUILDERS = {
     "house_modern_red": lambda label: buildings.modern_house((196, 72, 60), CREAM, label),
@@ -239,9 +239,10 @@ class LobbyScene(Scene):
         elif option == "OPÇÕES":
             from game.scenes.options import OptionsScene
             self.game.transition_to(lambda: OptionsScene(self.game, lambda: self))
-        elif option == "SAIR":                   # salva e volta para o menu inicial
+        elif option == "SAIR":                   # salva, sai do mundo online e volta para o título
             from game.scenes.title import TitleScene
             self.ch.save()
+            self.game.leave_online()
             self.game.transition_to(lambda: TitleScene(self.game))
 
     def interact(self):
@@ -370,6 +371,7 @@ class LobbyScene(Scene):
         elif t.champion:
             self.tournament = None
             self.ch.bets += TOURNAMENT_PRIZE
+            self.ch.coliseum_wins += 1
             self.ch.save()
             sfx.play("levelup")
             self.say(["O público vai à loucura! Você é o CAMPEÃO do Coliseu!",

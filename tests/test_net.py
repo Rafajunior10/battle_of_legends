@@ -5,11 +5,20 @@ import pytest
 
 from game.net import protocol
 from game.net.client import JoinError, WorldClient
+from game.net.database import AccountError, Database
 from game.net.server import WorldServer
 
 
 def hello(name, x=5, y=5):
     return {"name": name, "look": {"hair": "curto"}, "map": "vila", "x": x, "y": y, "facing": "down"}
+
+
+def join(port, name, x=5, y=5, password="1234"):
+    """Conecta, cria a conta e entra no mundo. Devolve o cliente e quem já estava lá."""
+    client = WorldClient()
+    client.open("127.0.0.1", port)
+    client.authenticate(name.lower(), password, register=True)
+    return client, client.enter(hello(name, x, y))
 
 
 def wait_for(client, kind, timeout=2.0):
@@ -48,10 +57,92 @@ def test_endereco_com_e_sem_porta():
         protocol.parse_address("")
 
 
+# ------------------------------------------------------------ banco de dados
+def test_banco_cria_conta_e_confere_a_senha():
+    db = Database(":memory:")
+    ana = db.register("Ana", "segredo")
+    assert db.login("ANA", "segredo") == ana                 # usuário não diferencia maiúsculas
+    with pytest.raises(AccountError, match="incorretos"):
+        db.login("ana", "errada")
+    with pytest.raises(AccountError, match="incorretos"):
+        db.login("ninguem", "segredo")
+    with pytest.raises(AccountError, match="já existe"):
+        db.register("ana", "outra")
+    row = db.conn.execute("SELECT password_hash FROM accounts").fetchone()
+    assert "segredo" not in row[0]                           # a senha nunca fica guardada
+
+
+def test_banco_recusa_usuario_e_senha_invalidos():
+    db = Database(":memory:")
+    with pytest.raises(AccountError, match="Usuário"):
+        db.register("a b", "1234")
+    with pytest.raises(AccountError, match="Usuário"):
+        db.register("ab", "1234")
+    with pytest.raises(AccountError, match="senha"):
+        db.register("ana", "12")
+
+
+def test_banco_guarda_o_personagem_da_conta():
+    db = Database(":memory:")
+    ana = db.register("ana", "1234")
+    assert db.load_character(ana) is None                    # conta nova ainda não tem personagem
+    db.save_character(ana, {"name": "Ana", "bets": 10})
+    db.save_character(ana, {"name": "Ana", "bets": 25})      # salvar de novo atualiza
+    assert db.load_character(ana) == {"name": "Ana", "bets": 25}
+
+
+def test_banco_continua_no_arquivo(tmp_path):
+    path = str(tmp_path / "world.db")
+    db = Database(path)
+    db.save_character(db.register("ana", "1234"), {"name": "Ana"})
+    db.close()
+    again = Database(path)                                   # o servidor reabriu: tudo continua lá
+    assert again.load_character(again.login("ana", "1234")) == {"name": "Ana"}
+    again.close()
+
+
+# ------------------------------------------------------------ login pela rede
+def test_login_devolve_o_personagem_salvo(server):
+    client = WorldClient()
+    client.open("127.0.0.1", server.port)
+    assert client.authenticate("ana", "1234", register=True) is None
+    client.save_character({"name": "Ana", "coliseum_wins": 3})
+    client.enter(hello("ANA"))
+    client.close()
+    time.sleep(0.1)
+    again = WorldClient()
+    again.open("127.0.0.1", server.port)
+    assert again.authenticate("ana", "1234") == {"name": "Ana", "coliseum_wins": 3}
+    again.close()
+
+
+def test_senha_errada_deixa_tentar_de_novo(server):
+    join(server.port, "ANA")[0].close()
+    client = WorldClient()
+    client.open("127.0.0.1", server.port)
+    with pytest.raises(JoinError, match="incorretos"):
+        client.authenticate("ana", "errada")
+    assert client.connected                                  # a conexão continua aberta
+    assert client.authenticate("ana", "1234") is None
+    client.close()
+
+
+def test_mesma_conta_nao_entra_duas_vezes(server):
+    ana, _ = join(server.port, "ANA")
+    other = WorldClient()
+    other.open("127.0.0.1", server.port)
+    with pytest.raises(JoinError, match="já está jogando"):
+        other.authenticate("ana", "1234")
+    ana.close()
+    time.sleep(0.1)
+    assert other.authenticate("ana", "1234") is None         # saiu: agora pode
+    other.close()
+
+
 def test_dois_jogadores_se_veem_andando(server):
-    ana, beto = WorldClient(), WorldClient()
-    assert ana.connect("127.0.0.1", server.port, hello("ANA")) == []
-    others = beto.connect("127.0.0.1", server.port, hello("BETO", 8, 8))
+    ana, others = join(server.port, "ANA")
+    assert others == []
+    beto, others = join(server.port, "BETO", 8, 8)
     assert [p["name"] for p in others] == ["ANA"]             # quem entra já vê quem estava
     joined = wait_for(ana, "join")
     assert joined["player"]["name"] == "BETO"
@@ -67,8 +158,11 @@ def test_dois_jogadores_se_veem_andando(server):
 
 def test_versao_diferente_e_recusada(server, monkeypatch):
     monkeypatch.setattr("game.net.client.VERSION", protocol.VERSION + 1)
+    client = WorldClient()
+    client.open("127.0.0.1", server.port)
     with pytest.raises(JoinError, match="Versão"):
-        WorldClient().connect("127.0.0.1", server.port, hello("ANA"))
+        client.authenticate("ana", "1234", register=True)
+    assert not client.connected
 
 
 def test_ninguem_hospedando_explica_o_problema():
@@ -77,15 +171,16 @@ def test_ninguem_hospedando_explica_o_problema():
     port = probe.port
     probe.stop()                                              # porta livre, ninguém escutando
     with pytest.raises(JoinError, match="Não achei ninguém"):
-        WorldClient().connect("127.0.0.1", port, hello("ANA"))
+        WorldClient().open("127.0.0.1", port)
 
 
 def test_quem_hospeda_entra_no_proprio_mundo():
     host = WorldClient()
-    assert host.host(hello("ANA"), port=0) == []
+    host.host(0, ":memory:")
     assert host.hosting and host.connected
-    friend = WorldClient()
-    friend.connect("127.0.0.1", host.server.port, hello("BETO"))
+    host.authenticate("ana", "1234", register=True)
+    assert host.enter(hello("ANA")) == []
+    friend, _ = join(host.server.port, "BETO")
     assert wait_for(host, "join")["player"]["name"] == "BETO"
     host.close()
     assert wait_for(friend, "disconnected")                   # o mundo fechou: o amigo fica sabendo

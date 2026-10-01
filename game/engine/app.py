@@ -90,6 +90,8 @@ class Game:
 
     def leave_online(self):
         """Sai do mundo compartilhado (e fecha o servidor, se este computador estava hospedando)."""
+        from game.data import character
+        character.remote_save = None          # sem conexão, o save volta para o arquivo
         if self.net is not None:
             self.net.close()
             self.net = None

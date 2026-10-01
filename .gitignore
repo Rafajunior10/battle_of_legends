@@ -8,6 +8,7 @@ __pycache__/
 # dados locais do jogador (cada um tem o seu)
 save.json
 config.json
+world.db
 
 # pacotes de arte que não podem ser redistribuídos (veja README: como baixar)
 assets/mana_seed/

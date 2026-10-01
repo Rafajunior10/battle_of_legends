@@ -4,7 +4,6 @@ import math
 import pygame
 
 from game.data.cards import CARDS
-from game.data.character import Character
 from game.engine import sfx
 from game.engine.settings import GAME_H, GAME_W
 from game.engine.ui import Menu, draw_outlined, draw_text, vertical_gradient
@@ -17,11 +16,8 @@ GRASS_GREEN = (88, 168, 72)   # faixa de grama se o pacote de arte faltar
 class TitleScene(Scene):
     def __init__(self, game):
         super().__init__(game)
-        has_save = Character.exists()
-        options = ["NOVO JOGO"] + (["CONTINUAR", "ONLINE"] if has_save else []) + ["OPÇÕES", "SAIR"]
+        options = ["JOGAR", "OPÇÕES", "SAIR"]
         self.menu = Menu(options, (GAME_W - 96) // 2, GAME_H - 18 - 14 * len(options), width=96, line_h=14)
-        if has_save:
-            self.menu.index = 1
         self.time = 0.0
         self.bg = vertical_gradient((GAME_W, GAME_H), (40, 56, 120), (136, 184, 240))
         if tilemap.available():
@@ -44,19 +40,7 @@ class TitleScene(Scene):
         if choice is None or choice == -1:
             return
         option = self.menu.options[choice]
-        if option == "NOVO JOGO":
-            from game.scenes.create import CreateScene
-            self.game.transition_to(lambda: CreateScene(self.game))
-        elif option == "CONTINUAR":
-            character = Character.load()
-            if character is None:
-                sfx.play("error")
-                return
-            from game.scenes.lobby import LobbyScene
-            self.game.character = character
-            self.game.lobby = LobbyScene(self.game)
-            self.game.transition_to(lambda: self.game.lobby)
-        elif option == "ONLINE":
+        if option == "JOGAR":                     # hospedar ou entrar no mundo, e fazer login
             from game.scenes.online import OnlineScene
             self.game.transition_to(lambda: OnlineScene(self.game))
         elif option == "OPÇÕES":

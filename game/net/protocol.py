@@ -1,12 +1,16 @@
 """O "idioma" da rede: cada mensagem é um dicionário em JSON, numa linha só (terminada em "\\n"), em UTF-8.
 
 Mensagens do jogador para o servidor:
-    hello   {name, look, map, x, y, facing, version}   primeira mensagem: quem eu sou e onde estou
-    move    {map, x, y, facing, run}                    comecei um passo para (x, y) / virei / troquei de mapa
-    emote   {text}                                      balão de fala
-    status  {battle}                                    entrei ou saí de uma batalha
+    login / register {user, password, version}   entrar na conta / criar conta (sempre a primeira mensagem)
+    save    {character}                          grava o personagem no banco do servidor
+    hello   {name, look, map, x, y, facing}      entrar no mundo: quem eu sou e onde estou
+    move    {map, x, y, facing, run}             comecei um passo para (x, y) / virei / troquei de mapa
+    emote   {text}                               balão de fala
+    status  {battle}                             entrei ou saí de uma batalha
 Mensagens do servidor para o jogador:
-    welcome {id, players}       seu número e quem já está no mundo
+    account {character}         login ok: o personagem salvo (ou null, conta nova)
+    denied  {text}              login/cadastro recusado (pode tentar de novo)
+    welcome {id, players}       seu número no mundo e quem já está lá
     join    {player}            alguém entrou        leave {id}   alguém saiu
     move / emote / status       o mesmo de cima, com o "id" de quem fez
     error   {text}              conexão recusada (versão diferente, servidor cheio...)
@@ -19,7 +23,7 @@ import json
 import socket
 
 PORT = 50550
-VERSION = 1                  # muda quando o formato das mensagens mudar (versões diferentes não se conectam)
+VERSION = 2                  # muda quando o formato das mensagens mudar (versões diferentes não se conectam)
 MAX_LINE = 64 * 1024         # mensagem maior que isso é lixo: a conexão é fechada
 MAX_PLAYERS = 8
 EMOTES = ["Oi!", "Bora duelar?", "Me segue!", "Valeu!", "Kkkkk", "Tchau!"]

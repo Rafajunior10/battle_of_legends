@@ -53,8 +53,11 @@ def choices_of(option, look: Look) -> list:
 
 
 class CreateScene(Scene):
-    def __init__(self, game):
+    def __init__(self, game, on_created=None):
+        """on_created(personagem): quem cuida do personagem novo (a tela de login: salva no servidor e
+        entra no mundo). Sem ela (testes), o personagem é salvo no arquivo e vai direto para a vila."""
         super().__init__(game)
+        self.on_created = on_created
         self.values = asdict(Look())      # valor escolhido em cada campo
         self.name = ""
         self.row = 0
@@ -153,6 +156,7 @@ class CreateScene(Scene):
         from game.scenes.title import TitleScene
         pygame.key.stop_text_input()
         sfx.play("cancel")
+        self.game.leave_online()          # desistiu de criar: sai da conta
         self.game.transition_to(lambda: TitleScene(self.game))
 
     def finish(self):
@@ -167,6 +171,9 @@ class CreateScene(Scene):
         sfx.play("save")
         character = Character(name=name)
         character.wear(self.look)
+        if self.on_created is not None:
+            self.on_created(character)
+            return
         character.save()
         self.game.character = character
         self.game.lobby = LobbyScene(self.game, first_time=True)
