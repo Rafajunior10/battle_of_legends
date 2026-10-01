@@ -1,0 +1,36 @@
+[project]
+name = "card-quest"
+version = "0.3.0"
+description = "RPG de cartas em pixel art feito com pygame-ce"
+requires-python = ">=3.12"
+dependencies = ["pygame-ce>=2.5"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+filterwarnings = ["ignore:no fast renderer available"]   # driver de vídeo "dummy" dos testes
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "C90", "N", "PL", "RUF", "RET", "PIE", "PERF"]
+ignore = [
+    "PLR2004",  # coordenadas de pixel na interface são números "mágicos" por natureza
+    "PLC0415",  # cenas importam umas às outras dentro das funções para evitar import circular
+    "PLR0913",  # funções de desenho recebem posição, cor, tamanho e alinhamento
+    "PLR0917",
+    "PLW0603",  # caches de sprites e estado do áudio são globais do módulo de propósito
+]
+
+[tool.ruff.lint.per-file-ignores]
+"game/pixelfont.py" = ["RUF001"]   # o "ı" (i sem pingo) é a base do "í" na fonte
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.lint.pylint]
+max-branches = 15
+max-returns = 8

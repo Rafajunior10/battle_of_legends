@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# dados locais do jogador (cada um tem o seu)
+save.json
+config.json
+
+# pacotes de arte que não podem ser redistribuídos (veja README: como baixar)
+assets/mana_seed/
+assets/static_creatures/
+
+# configurações locais do Claude Code (as skills do projeto continuam no repositório)
+.claude/settings.local.json

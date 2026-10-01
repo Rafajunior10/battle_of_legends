@@ -1,0 +1,10 @@
+# Texto com fim de linha normalizado (LF no repositório); imagens e sons como binários
+* text=auto
+*.png binary
+*.jpg binary
+*.gif binary
+*.wav binary
+*.ogg binary
+*.mp3 binary
+*.ttf binary
+*.zip binary
