@@ -48,6 +48,15 @@ game-architecture, game-ai, game-ui-pygame, game-testing, game-design, game-debu
   decisão nova do jogador precisa virar `sent({...})` + tratamento em `remote_steps`. `tests/test_duel.py`
   confere que os dois lados terminam idênticos.
 - **Dados do mundo** (mapa, NPCs, falas) ficam em `game/data/world.py`; `lobby.py` só tem comportamento.
+- **Lanchonete** (mapa `lanchonete`, porta "cafe" na vila): interior = `MapDef.interior` + chão/paredes por código
+  em `graphics/interiors.py` (`GROUNDS`), móveis em `interiors.FURNITURE` (entram em `lobby.BUILDERS`). Objetos
+  com `Placed.action` "seat:<direção>" são assentos (`MapDef.seats`, sentar = `Actor.sitting`, desenho cortado
+  na cintura + frente do assento por cima) e "use:<coisa>" fazem algo (`MapDef.uses`: "tv", "swap"). Balcão
+  (`ObjectDef.counter`) deixa falar com quem está atrás. Comportamento em `scenes/cafe.py` (mixin `CafeMixin`
+  do LobbyScene). Lanches: `data/food.py` + `core/food.py`; `Character.snack` é gasto no começo da próxima
+  batalha (`BattleScene.take_snacks`/`eat_snacks`; no PvP não vale). Mesa de troca entre jogadores: mensagens
+  `swap_*` que o servidor só repassa (`RELAY_MESSAGES`), regras em `economy.can_swap`/`swap_card`, tela
+  `scenes/trade_table.py`.
 - **Diálogo com pergunta**: use `ui.Prompt` (`say`, `ask`, `choose`), não recrie DialogBox + Menu na cena.
 - **Cartas vêm da planilha de regras** do usuário; `tests/test_cards.py` (SPREADSHEET) confere os números.
   Mudou carta? Atualize os dois. A descrição é gerada pelos campos (`CardDef.text`), não escreva à mão.

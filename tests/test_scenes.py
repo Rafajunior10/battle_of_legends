@@ -10,7 +10,7 @@ import pytest
 from game.data.cards import PACKS, make_deck
 from game.data.character import Character
 from game.data.opponents import trainer_spec
-from game.data.world import MAPS, TRAINER_TALK
+from game.data.world import CAFE_SPOT, MAPS, SOLID_TILES, TRAINER_TALK
 from game.engine.app import Game
 from game.scenes.battle import BattleScene
 from game.scenes.deckedit import DeckEditScene
@@ -117,18 +117,40 @@ def reachable(scene, start):
     return seen
 
 
+def talkable(lobby, seen, tile):
+    """Dá para falar com/usar `tile` de algum lugar alcançável (vizinho, ou do outro lado de um balcão)."""
+    counters = lobby.map_def.counter_tiles()
+    for dx, dy in NEIGHBORS:
+        probe = (tile[0] + dx, tile[1] + dy)
+        while probe in counters:
+            probe = (probe[0] + dx, probe[1] + dy)
+        if probe in seen:
+            return True
+    return False
+
+
 @pytest.mark.parametrize("map_id", list(MAPS))
 def test_mapa_tudo_alcancavel(lobby, map_id):
-    first_warp = next(w for m in MAPS.values() for w in m.warps if w.to_map == map_id) if map_id != "vila" else None
-    start = (first_warp.to_x, first_warp.to_y) if first_warp else (lobby.player.tx, lobby.player.ty)
+    first_warp = next((w for m in MAPS.values() for w in m.warps if w.to_map == map_id), None)
+    if map_id == "vila":
+        start = (lobby.player.tx, lobby.player.ty)
+    elif map_id == "lanchonete":
+        start = CAFE_SPOT                                  # entra-se pela porta da vila
+    else:
+        start = (first_warp.to_x, first_warp.to_y)
     lobby.load_map(map_id, start, "down")
     seen = reachable(lobby, start)
     for door in lobby.map_def.doors:
         assert (door[0], door[1] + 1) in seen, f"porta {door} inalcançável"
     for npc in lobby.npcs:
-        assert any((npc.tx + dx, npc.ty + dy) in seen for dx, dy in NEIGHBORS), npc.id
+        assert talkable(lobby, seen, (npc.tx, npc.ty)), npc.id
     for warp in lobby.map_def.warps:
         assert (warp.x, warp.y) in seen, f"passagem {warp} inalcançável"
+    for tile in lobby.map_def.seats:
+        assert talkable(lobby, seen, tile), f"assento em {tile} inalcançável"
+    for use in set(lobby.map_def.uses.values()):         # pelo menos um tile de cada objeto que se usa
+        tiles = [t for t, u in lobby.map_def.uses.items() if u == use]
+        assert any(talkable(lobby, seen, t) for t in tiles), f"{use} inalcançável"
 
 
 @pytest.mark.parametrize("map_id", list(MAPS))
@@ -137,7 +159,7 @@ def test_passagens_e_treinadores_validos(lobby, map_id):
     for warp in MAPS[map_id].warps:
         dest = MAPS[warp.to_map]
         grid = dest.build()
-        assert grid[warp.to_y][warp.to_x] not in "TWFSR", f"{warp} chega num tile sólido"
+        assert grid[warp.to_y][warp.to_x] not in SOLID_TILES, f"{warp} chega num tile sólido"
         assert dest.warp_at(warp.to_x, warp.to_y) is None, f"{warp} chega em cima de outra passagem"
     for tid in MAPS[map_id].trainers:
         assert tid in TRAINER_TALK

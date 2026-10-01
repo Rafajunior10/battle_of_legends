@@ -252,3 +252,80 @@ def test_recusar_o_duelo_avisa_quem_desafiou(game, monkeypatch, tmp_path):
     run_lobby(lobby)
     pick(lobby, 1)                                             # NÃO
     assert "recusou" in wait_for(friend, "challenge_denied")["text"]
+
+
+# ------------------------------------------------------------ lanchonete: sentar e mesa de troca
+def cafe_with_friend(game, monkeypatch, tmp_path):
+    """Eu e o amigo dentro da lanchonete, e eu com uma carta sobrando (fora dos decks)."""
+    from game.data.world import CAFE_SPOT
+    lobby = host_world(game, monkeypatch, tmp_path)
+    game.character.collection.append("murrao")
+    lobby.load_map("lanchonete", CAFE_SPOT, "up")
+    friend, _ = friend_joins(game.net.server.port)
+    friend.send({"t": "move", "map": "lanchonete", "x": 20, "y": 12, "facing": "down", "run": False})
+    run_lobby(lobby)
+    return lobby, friend, next(iter(lobby.remotes.values()))
+
+
+def test_quem_senta_aparece_sentado_para_o_outro(game, monkeypatch, tmp_path):
+    lobby, friend, beto = cafe_with_friend(game, monkeypatch, tmp_path)
+    friend.send({"t": "move", "map": "lanchonete", "x": 19, "y": 6, "facing": "up", "run": False, "sit": True})
+    run_lobby(lobby)
+    assert beto.sitting and (beto.tx, beto.ty) == (19, 6)
+    lobby.draw(game.screen)
+    lobby.player.place(17, 7)
+    lobby.player.facing = "up"
+    lobby.sit((17, 6))
+    message = wait_for(friend, "move")
+    while not message.get("sit"):                              # o amigo recebe: ANA sentou no puff
+        message = wait_for(friend, "move")
+    assert (message["x"], message["y"]) == (17, 6)
+    friend.close()
+
+
+def test_eu_chamo_o_amigo_para_a_mesa_de_troca(game, monkeypatch, tmp_path):
+    from game.scenes.trade_table import TradeTableScene
+    lobby, friend, _ = cafe_with_friend(game, monkeypatch, tmp_path)
+    lobby.open_swap()
+    pick(lobby, 0)                                             # SIM: chamar o BETO
+    ask = wait_for(friend, "swap_ask")
+    assert ask["name"] == "ANA"
+    friend.send({"t": "swap_cards", "to": ask["from"], "cards": ["zeus_luz", "carta_falsa"]})
+    run_lobby(lobby)
+    run_game(game, 1.5)
+    table = game.scene
+    assert isinstance(table, TradeTableScene) and table.cards[1] == ["zeus_luz"]   # carta falsa foi filtrada
+    table.draw(game.screen)
+    table.lists[0].index = table.cards[0].index("murrao")
+    press(table, pygame.K_z)                                   # dou MURRÃO
+    press(table, pygame.K_z)                                   # quero ZEUS LUZ
+    pick(table, 0)                                             # SIM, oferecer
+    offer = wait_for(friend, "swap_offer")
+    assert (offer["give"], offer["want"]) == ("murrao", "zeus_luz")
+    run_game(game, 1.5)
+    assert game.scene is lobby
+    friend.send({"t": "swap_answer", "to": offer["from"], "yes": True, "give": "murrao", "want": "zeus_luz"})
+    run_lobby(lobby)
+    ch = game.character
+    assert ch.owned("zeus_luz") == 1 and ch.spare("murrao") == 0
+    friend.close()
+
+
+def test_o_amigo_me_chama_e_eu_aceito_a_troca(game, monkeypatch, tmp_path):
+    lobby, friend, _ = cafe_with_friend(game, monkeypatch, tmp_path)
+    friend.send({"t": "swap_ask", "to": game.net.id})
+    run_lobby(lobby)
+    pick(lobby, 0)                                             # SIM: aceito ir para a mesa
+    cards = wait_for(friend, "swap_cards")["cards"]
+    assert cards == ["murrao"]                                 # só as minhas cartas sobrando
+    friend.send({"t": "swap_offer", "to": game.net.id, "give": "bola_de_gelo", "want": "murrao"})
+    run_lobby(lobby)
+    pick(lobby, 0)                                             # SIM: aceito a oferta
+    answer = wait_for(friend, "swap_answer")
+    assert answer["yes"] and game.character.owned("bola_de_gelo") == 1
+    friend.send({"t": "swap_offer", "to": game.net.id, "give": "zeus_luz", "want": "murrao"})
+    run_lobby(lobby)
+    pick(lobby, 0)                                             # aceito, mas não tenho mais MURRÃO sobrando
+    refused = wait_for(friend, "swap_answer")
+    assert not refused["yes"] and "sobrando" in refused["text"]
+    friend.close()

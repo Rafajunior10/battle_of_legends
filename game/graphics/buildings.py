@@ -200,37 +200,48 @@ def arena(label="ARENA", w=7, h=5):
     return s
 
 
-def construction(label="NOVA CONSTRUÇÃO", w=6, h=5):
-    """Obra: estrutura de concreto, andaime laranja, tapume com faixas e cones."""
+def snack_bar(label="LANCHONETE", w=6, h=5):
+    """Lanchonete moderna: letreiro com hambúrguer e copo, toldo listrado, vitrines grandes e porta de vidro."""
     s = pygame.Surface((w * 16, h * 16), pygame.SRCALPHA)
     width, height = w * 16, h * 16
-    concrete = ((120, 122, 130), (168, 170, 176), (206, 208, 212))
-    for fy in (8, 30, 52):                                       # lajes
-        pygame.draw.rect(s, OUTLINE, (6, fy, width - 12, 5))
-        pygame.draw.rect(s, concrete[1], (7, fy + 1, width - 14, 3))
-        pygame.draw.line(s, concrete[2], (7, fy + 1), (width - 8, fy + 1))
-    for px in (8, width // 2 - 2, width - 14):                   # pilares
-        pygame.draw.rect(s, OUTLINE, (px - 1, 8, 8, height - 18))
-        pygame.draw.rect(s, concrete[0], (px, 9, 6, height - 20))
-        pygame.draw.line(s, concrete[2], (px, 9), (px, height - 12))
-    orange = ((176, 86, 30), (236, 136, 52))
-    for sx in (2, width - 4):                                    # andaime
-        pygame.draw.line(s, orange[0], (sx, 4), (sx, height - 8), 2)
-    for sy in range(10, height - 10, 11):
-        pygame.draw.line(s, orange[1], (2, sy), (width - 3, sy))
-        pygame.draw.line(s, orange[0], (2, sy), (12, sy + 10))
-    board = pygame.Rect(0, height - 22, width, 16)               # tapume
-    pygame.draw.rect(s, OUTLINE, board)
-    pygame.draw.rect(s, (222, 222, 226), board.inflate(-2, -2))
-    for i in range(0, width, 10):
-        pygame.draw.polygon(s, (240, 180, 40), [(i, board.bottom - 2), (i + 5, board.y + 2),
-                                                 (i + 9, board.y + 2), (i + 4, board.bottom - 2)])
-    plaque(s, width // 2, board.y + 3, label)
-    for cx in (4, width - 10):                                   # cones
-        pygame.draw.polygon(s, OUTLINE, [(cx, height), (cx + 3, height - 9), (cx + 6, height)])
-        pygame.draw.polygon(s, (236, 110, 40), [(cx + 1, height - 1), (cx + 3, height - 7), (cx + 5, height - 1)])
-        pygame.draw.line(s, (250, 250, 250), (cx + 2, height - 4), (cx + 4, height - 4))
+    wall(s, (2, 30, width - 4, height - 30), (176, 222, 208), base=((180, 50, 46), (214, 58, 52), (240, 104, 92)))
+    flat_roof(s, (2, 24, width - 4, 7), (214, 58, 52))
+    for px in (20, width - 22):                                  # hastes do letreiro
+        pygame.draw.rect(s, OUTLINE, (px, 16, 3, 9))
+    sign = pygame.Rect(6, 3, width - 12, 15)                     # letreiro
+    pygame.draw.rect(s, OUTLINE, sign.inflate(2, 2), border_radius=4)
+    pygame.draw.rect(s, (250, 214, 80), sign, border_radius=4)
+    pygame.draw.line(s, (255, 240, 170), (sign.x + 3, sign.y + 1), (sign.right - 4, sign.y + 1))
+    draw_text(s, label, (width // 2, sign.y + 3), color=(190, 40, 40), size=12, shadow=None, align="center")
+    _burger(s, sign.x + 2, sign.y + 3)
+    _cup(s, sign.right - 9, sign.y + 2)
+    for i, x in enumerate(range(4, width - 4, 6)):              # toldo listrado amarelo e vermelho
+        color = (214, 58, 52) if i % 2 == 0 else (250, 230, 120)
+        pygame.draw.rect(s, color, (x, 32, 6, 5))
+        pygame.draw.circle(s, color, (x + 3, 37), 3)
+    pygame.draw.line(s, OUTLINE, (3, 31), (width - 4, 31))
+    for wx, ww in ((6, 30), (width - 36, 30)):                   # vitrines: banquinhos e balcão lá dentro
+        window(s, wx, 44, ww, 20, frame=(70, 70, 82))
+        pygame.draw.rect(s, (214, 58, 52), (wx + 1, 56, ww - 2, 3))
+        for bx in range(wx + 4, wx + ww - 3, 8):
+            pygame.draw.rect(s, (240, 80, 70), (bx, 59, 4, 2))
+    door(s, 3 * 16 - 7, height - 22, 14, 22, color=(70, 70, 82), glass=True)
     return s
+
+
+def _burger(s, x, y):
+    pygame.draw.ellipse(s, OUTLINE, (x - 1, y - 1, 9, 9))
+    pygame.draw.ellipse(s, (226, 160, 70), (x, y, 7, 4))
+    pygame.draw.rect(s, (90, 180, 70), (x, y + 4, 7, 1))
+    pygame.draw.rect(s, (120, 60, 40), (x, y + 5, 7, 1))
+    pygame.draw.rect(s, (226, 160, 70), (x, y + 6, 7, 1))
+
+
+def _cup(s, x, y):
+    pygame.draw.polygon(s, OUTLINE, [(x - 1, y + 1), (x + 7, y + 1), (x + 6, y + 11), (x, y + 11)])
+    pygame.draw.polygon(s, (250, 250, 246), [(x, y + 2), (x + 6, y + 2), (x + 5, y + 10), (x + 1, y + 10)])
+    pygame.draw.rect(s, (214, 58, 52), (x + 1, y + 5, 5, 2))
+    pygame.draw.line(s, (214, 58, 52), (x + 4, y + 2), (x + 6, y - 2))
 
 
 def street_lamp():

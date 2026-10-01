@@ -99,6 +99,14 @@ ser as do legend.
   evoluir cartas até o nível 3 (com XP de batalha ou BETS) e vender cópias que sobram.
 - **Editor de deck**: escolha o tipo do deck (e o legend); a lista só mostra as cartas que podem entrar.
 - **Coliseu**: torneio de 3 rodadas, XP em dobro e 500 BETS para o campeão.
+- **Lanchonete** (na vila, ao lado da loja): entre pela porta e ande lá dentro.
+  - A atendente **LU**, no caixa, vende maçã, banana, café, refrigerante, sorvete e X-burguer. O lanche dá
+    PV a mais na **próxima batalha** (de +3 a +12) e só cabe um por vez. No duelo PvP o lanche não vale.
+  - Sente nas cadeiras e nos **puffs**: A de frente para o assento; qualquer direção levanta. Os outros
+    jogadores online veem você sentado.
+  - A **TV** tem 3 canais que trocam sozinhos; A de frente para ela (ou sentado no puff) mostra o programa.
+  - Na **MESA DE TROCA**, você troca uma carta sobrando (fora dos decks) com outro jogador online: chame-o,
+    escolha a carta que dá e a que quer, e ele aceita ou recusa.
 - **Ficha do jogador** (tecla I ou E) com o tema do elemento do deck.
 - **Batalha** com transformação animada, faixa de apresentação do legend, tremor de tela, números de dano
   e efeitos de partículas. Fonte pixel própria com acentos, música chiptune e sons gerados por código.
@@ -144,13 +152,15 @@ game/
     effects.py, events.py    efeitos das cartas e eventos para a interface narrar
     abilities.py             transformação e habilidades dos legends
     ai.py                    IA fácil / normal / difícil (inclui as habilidades)
-    economy.py, tournament.py  loja, evolução, trocas e o torneio do coliseu
+    economy.py, tournament.py  loja, evolução, trocas (Nina e entre jogadores) e o torneio do coliseu
+    food.py, duel.py         lanches da lanchonete; regras do duelo online (semente, ficha do jogador)
     rules.py                 números da batalha (mão, energia, gelo...)
   data/                      DADOS do jogo
     cards.py                 as 27 cartas, tipos, raridades e o deck
     legends.py               os legends
     character.py             personagem, coleção, decks, legends e save
-    opponents.py, world.py   treinadores, monstros, mapas, NPCs e falas
+    opponents.py, world.py   treinadores, monstros, mapas (com o interior da lanchonete), NPCs e falas
+    food.py                  cardápio da lanchonete
     looks.py, props.py       aparência das pessoas e catálogo de objetos do mapa
   graphics/                  DESENHO e arte
     sprites.py               ponto único para pedir pessoas, monstros, legends e rostos
@@ -159,6 +169,7 @@ game/
     assets.py                lê o pacote Ninja Adventure
     tilemap.py               chão, objetos e sombras dos mapas (pacote Ninja Adventure)
     buildings.py, backgrounds.py  construções com placa e o cenário da batalha
+    interiors.py             interiores por código: chão e paredes, móveis da lanchonete e canais da TV
     pixelart.py, pixelfont.py     cartas, ícones e a fonte pixel própria
   engine/                    MOTOR
     app.py, display.py       laço principal, janela, FPS
@@ -170,7 +181,8 @@ game/
     battle.py                batalha: fila de passos, turnos, narração e habilidades
     battle_hud.py            desenho da batalha (painéis, marcadores, mão, botões)
     battle_fx.py             animações: transformação, faixa do legend, golpes, partículas
-    lobby.py, actors.py      mundo andável e personagens em grade
+    lobby.py, actors.py      mundo andável e personagens em grade (andando ou sentados)
+    cafe.py, trade_table.py  lanchonete (atendente, assentos, TV) e a tela da mesa de troca
     online.py                tela JOGAR: hospedar ou entrar no mundo, login e criação de conta
     duel.py                  duelo online contra outro jogador (a batalha, com o oponente vindo da rede)
     shop.py, deckedit.py, create.py, profile.py, options.py, title.py, common.py
@@ -187,4 +199,6 @@ tests/                       pytest
   `game/core/abilities.py`. Com mais de um legend do mesmo tipo, o editor de deck pergunta qual usar.
 - **Novo treinador**: entrada em `TRAINERS` (`game/data/opponents.py`) e posição e falas em `game/data/world.py`.
 - **Novo mapa**: função `build_...()` e um `MapDef` em `game/data/world.py` (os testes conferem se dá para
-  chegar em tudo e se as passagens batem).
+  chegar em tudo e se as passagens batem). Interior: `interior="..."` no `MapDef`, o chão desenhado em
+  `game/graphics/interiors.py` (`GROUNDS`) e uma porta com ação nova em `LobbyScene.door_action`.
+- **Novo lanche**: um `FoodItem` em `game/data/food.py` (o cardápio da parede e o da LU saem dali).

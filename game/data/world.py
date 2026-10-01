@@ -1,8 +1,10 @@
 """Mapas do mundo: tiles, prédios, portas, placas, NPCs, treinadores e passagens. Sem Pygame.
 
 Legenda dos tiles: . grama  , mato alto  = caminho  W água  B ponte  f flores  T árvore  F cerca
-                   S placa  R pedra
+                   S placa  R pedra  # parede (interior)  _ piso (interior)
 Cada mapa é um MapDef; as passagens (Warp) levam de um mapa a outro quando o jogador pisa nelas.
+Interiores (como a lanchonete) têm `interior`: o chão e as paredes são desenhados por código
+(game/graphics/interiors.py) em vez de vir do tileset.
 """
 from __future__ import annotations
 
@@ -14,7 +16,8 @@ from game.data.looks import Look
 from game.data.opponents import FOREST_WILD_TYPES, WILD_TYPES
 from game.data.props import OBJECTS
 
-SOLID_TILES = frozenset("TWFSR")
+SOLID_TILES = frozenset("TWFSR#")
+WALL, FLOOR = "#", "_"
 TALL_GRASS = ","
 WATER = "W"
 
@@ -35,7 +38,9 @@ class Spot:
 @dataclass(frozen=True)
 class Placed:
     """Objeto do catálogo (props.OBJECTS) colocado no mapa, com o canto de cima à esquerda em (x, y).
-    action: o que a porta faz ("home", "shop", "coliseum" ou "locked:texto"), se tiver porta."""
+    action: o que a porta faz ("home", "shop", "coliseum", "cafe" ou "locked:texto"), se tiver porta;
+            "seat:<direção>" num assento (o personagem senta olhando para lá);
+            "use:<coisa>" num objeto que faz algo ao apertar A de frente para ele ("use:tv", "use:swap")."""
     name: str
     x: int
     y: int
@@ -64,6 +69,7 @@ class Helper:
     """NPC que não duela."""
     spot: Spot
     look: Look                      # aparência (game/data/looks.py)
+    sitting: bool = False           # sentado num assento (o spot é o do assento)
 
 
 @dataclass(frozen=True)
@@ -87,6 +93,7 @@ class MapDef:
     wild_types: list[tuple] = field(default_factory=lambda: list(WILD_TYPES))   # monstros do mato alto
     warps: list[Warp] = field(default_factory=list)
     wild_bonus: int = 0                  # gosmas daqui ficam este tanto de níveis acima do jogador
+    interior: str = ""                   # chão desenhado por código (interiors.py); "" = tileset ao ar livre
 
     @property
     def doors(self) -> dict[tuple[int, int], str]:
@@ -100,6 +107,30 @@ class MapDef:
         tiles: set[tuple[int, int]] = set()
         for obj in self.objects:
             tiles |= OBJECTS[obj.name].footprint(obj.x, obj.y)
+        return tiles
+
+    @property
+    def seats(self) -> dict[tuple[int, int], str]:
+        """Tile do assento (a linha de baixo do objeto) -> para onde quem senta fica olhando."""
+        return {(o.x, o.y + OBJECTS[o.name].h - 1): o.action.split(":", 1)[1]
+                for o in self.objects if o.action and o.action.startswith("seat:")}
+
+    @property
+    def uses(self) -> dict[tuple[int, int], str]:
+        """Cada tile de um objeto "use:..." -> o que ele faz (ex.: "tv")."""
+        tiles = {}
+        for o in self.objects:
+            if o.action and o.action.startswith("use:"):
+                d = OBJECTS[o.name]
+                tiles.update({(o.x + dx, o.y + dy): o.action[4:] for dy in range(d.h) for dx in range(d.w)})
+        return tiles
+
+    def counter_tiles(self) -> set[tuple[int, int]]:
+        """Tiles de balcão: dá para falar com quem está do outro lado."""
+        tiles: set[tuple[int, int]] = set()
+        for obj in self.objects:
+            if OBJECTS[obj.name].counter:
+                tiles |= OBJECTS[obj.name].footprint(obj.x, obj.y)
         return tiles
 
     def warp_at(self, x: int, y: int) -> Warp | None:
@@ -128,7 +159,7 @@ def _place(g, tile, points):
 
 
 # ============================================================ Vila Carta
-# 64 x 44 tiles. Norte: casas, Loja de Cartas, uma obra nova e a Arena. Centro: praça com poço e varal.
+# 64 x 44 tiles. Norte: casas, Loja de Cartas, a Lanchonete e a Arena. Centro: praça com poço e varal.
 # Leste: rio com ponte, sítio cercado e o campo de mato alto. Oeste/sul: casas e o Coliseu.
 VILA_SIGNS = {
     (14, 33): f"COLISEU: torneios de {ROUNDS} rodadas. XP x{XP_MULTIPLIER} e {TOURNAMENT_PRIZE} BETS para o campeão!",
@@ -150,7 +181,7 @@ def build_vila() -> list[list[str]]:
     fill("=", 7, 14, 1, 1)               # porta de casa
     fill("=", 13, 14, 1, 1)              # porta do Rafa
     fill("=", 20, 14, 1, 1)              # porta da loja
-    fill("=", 25, 11, 2, 4)              # trilha até a obra
+    fill("=", 26, 11, 2, 4)              # calçada da lanchonete
     fill("=", 36, 14, 1, 1)              # porta da Arena
     fill(WATER, 44, 0, 3, 31)            # rio descendo do norte...
     fill(WATER, 44, 28, 20, 3)           # ...e virando para o leste
@@ -189,7 +220,7 @@ VILA = MapDef(
         Placed("house_modern_blue", 11, 9, "locked:Casa do Rafa. A porta está trancada.", "CASA DO RAFA"),
         Placed("house_modern_green", 5, 3, "locked:Casa da Vó Rosa. Ela foi passear no bosque.", "CASA DA VÓ ROSA"),
         Placed("card_shop", 17, 10, "shop", "LOJA DE CARTAS"),
-        Placed("construction", 24, 6, "locked:Uma construção nova! Ainda não dá para entrar.", "NOVA CONSTRUÇÃO"),
+        Placed("snack_bar", 24, 6, "cafe", "LANCHONETE"),
         Placed("arena", 33, 9, "locked:A Arena está fechada. Fale com a Mestra Lia, na porta.", "ARENA"),
         Placed("house_modern_gray", 50, 3, "locked:Prefeitura da Vila Carta. Fechada hoje.", "PREFEITURA"),
         Placed("house_wood", 54, 11, "locked:Depósito do sítio. Trancado.", "DEPÓSITO"),
@@ -261,6 +292,7 @@ VILA = MapDef(
     warps=[Warp(30, 43, "bosque", 21, 2, "down"), Warp(31, 43, "bosque", 22, 2, "down")],
 )
 HOME_DOOR = VILA.door_of("home")
+CAFE_DOOR = VILA.door_of("cafe")
 HOME_SPOT = (HOME_DOOR[0], HOME_DOOR[1] + 1)
 COLISEUM_DOOR = VILA.door_of("coliseum")
 
@@ -326,7 +358,77 @@ BOSQUE = MapDef(
     wild_bonus=2,
 )
 
-MAPS = {m.id: m for m in (VILA, BOSQUE)}
+# ============================================================ Lanchonete (interior)
+# 30 x 17 tiles: ocupa a tela inteira. Parede do fundo com cardápio, TV e janela; balcão com a atendente
+# à esquerda; puffs de frente para a TV; mesas para comer e a MESA DE TROCA. A porta fica embaixo.
+CAFE_W, CAFE_H = 30, 17
+CAFE_EXIT = (14, CAFE_H - 1)            # os 2 tiles da porta (x e x + 1) na parede de baixo
+CAFE_SPOT = (CAFE_EXIT[0], CAFE_H - 2)  # onde você aparece ao entrar
+CAFE_SIGNS = {
+    **{(x, y): "BALCÃO: para pedir, fale com a LU no caixa." for x in range(1, 11) for y in (4, 5)},
+    (13, 3): "FREEZER: sorvete de chocolate, morango e flocos. Peça para a LU!",
+    (14, 3): "FREEZER: sorvete de chocolate, morango e flocos. Peça para a LU!",
+    (11, 3): "GELADEIRA: refrigerante de cola, guaraná e laranja. Bem gelado!",
+    (12, 3): "GELADEIRA: refrigerante de cola, guaraná e laranja. Bem gelado!",
+    (28, 7): "JUKEBOX: tocando 'Lo-fi para montar decks'. Clássico!",
+}
+
+
+def build_cafe() -> list[list[str]]:
+    g = [[FLOOR for _ in range(CAFE_W)] for _ in range(CAFE_H)]
+    for y in range(CAFE_H):
+        for x in range(CAFE_W):
+            if y < 3 or x in (0, CAFE_W - 1) or y == CAFE_H - 1:
+                g[y][x] = WALL
+    g[CAFE_EXIT[1]][CAFE_EXIT[0]] = g[CAFE_EXIT[1]][CAFE_EXIT[0] + 1] = FLOOR
+    return g
+
+
+CAFE = MapDef(
+    id="lanchonete",
+    name="Lanchonete",
+    build=build_cafe,
+    interior="lanchonete",
+    objects=[
+        Placed("counter", 1, 4),
+        Placed("soda_fridge", 11, 1),
+        Placed("freezer", 13, 2),
+        Placed("tv", 18, 1, "use:tv"),
+        Placed("puff_red", 17, 6, "seat:up"),
+        Placed("puff_yellow", 19, 6, "seat:up"),
+        Placed("puff_blue", 21, 6, "seat:up"),
+        Placed("plant", 16, 2),
+        Placed("plant", 23, 2),
+        Placed("plant", 28, 14),
+        Placed("plant", 1, 14),
+        Placed("jukebox", 28, 6),
+        Placed("trade_table", 4, 10, "use:swap"),
+        Placed("chair_r", 3, 9, "seat:right"),
+        Placed("chair_l", 7, 9, "seat:left"),
+        Placed("table", 17, 10),
+        Placed("chair_r", 16, 9, "seat:right"),
+        Placed("chair_l", 19, 9, "seat:left"),
+        Placed("table", 23, 10),
+        Placed("chair_r", 22, 9, "seat:right"),
+        Placed("chair_l", 25, 9, "seat:left"),
+        Placed("table", 25, 3),
+        Placed("chair_r", 24, 2, "seat:right"),
+        Placed("chair_l", 27, 2, "seat:left"),
+    ],
+    signs=CAFE_SIGNS,
+    helpers={
+        "lu": Helper(Spot(5, 3, "down"),
+                     Look("Feminino", "chanel", "ruivo", 2, top="camisa", shirt="vermelho",
+                          bottom="calça", legs="preto", shoes="preto")),
+        "gabi": Helper(Spot(16, 10, "right"),
+                       Look("Feminino", "longo", "preto", 4, top="top", shirt="amarelo",
+                            bottom="saia", legs="jeans", shoes="branco"), sitting=True),
+    },
+    warps=[Warp(CAFE_EXIT[0], CAFE_EXIT[1], "vila", CAFE_DOOR[0], CAFE_DOOR[1] + 1, "down"),
+           Warp(CAFE_EXIT[0] + 1, CAFE_EXIT[1], "vila", CAFE_DOOR[0], CAFE_DOOR[1] + 1, "down")],
+)
+
+MAPS = {m.id: m for m in (VILA, BOSQUE, CAFE)}
 
 
 # ============================================================ falas
@@ -390,4 +492,17 @@ ROSA_TIPS = [
     "VÓ ROSA: O KAIO joga com Raio. Leve cartas que aguentem ficar com pouca energia.",
     "VÓ ROSA: A MILA, na clareira, acumula veneno. Vencer rápido é o segredo!",
     "VÓ ROSA: Se cansar, volte pela estrada do norte. A Vila Carta fica logo ali.",
+]
+
+# Lanchonete: a cliente GABI dá dicas; a TV tem 3 canais (os desenhos ficam em graphics/interiors.py).
+GABI_TIPS = [
+    "GABI: Eu sempre como um X-BURGUER antes do Coliseu. Dá +12 PV na próxima batalha!",
+    "GABI: O lanche só vale para UMA batalha. E de barriga cheia a Lu não vende outro, viu?",
+    "GABI: Naquela MESA DE TROCA, dois duelistas online trocam cartas que estão sobrando.",
+    "GABI: Os puffs de frente para a TV são os melhores lugares da vila. Sente lá!",
+]
+TV_SHOWS = [
+    "TV: AO VIVO do Coliseu! O desafiante joga um CHOQUE DO TROVÃO... e a torcida vai à loucura!",
+    "TV: Previsão do tempo: sol na Vila Carta e névoa no Bosque Sussurro. Cuidado com as gosmas!",
+    "TV: CARTA DO DIA! Lembre: com 4 marcadores de gelo, o oponente congela e perde o turno.",
 ]

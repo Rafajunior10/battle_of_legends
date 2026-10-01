@@ -238,3 +238,16 @@ def test_duelo_acabou_libera_os_dois(server):
     time.sleep(0.1)
     assert not [m for m in ana.poll() if m["t"] == "duel_end"]   # já tinha acabado: sem W.O.
     ana.close()
+
+
+def test_mesa_de_troca_so_repassa_para_o_outro(server):
+    ana, _ = join(server.port, "ANA")
+    beto, _ = join(server.port, "BETO")
+    ana.send({"t": "swap_ask", "to": beto.id})
+    ask = wait_for(beto, "swap_ask")
+    assert (ask["from"], ask["name"]) == (ana.id, "ANA") and "to" not in ask
+    ana.send({"t": "swap_ask", "to": 999})                    # ninguém com esse número: some
+    beto.send({"t": "swap_cards", "to": ana.id, "cards": ["murrao"]})
+    assert wait_for(ana, "swap_cards")["cards"] == ["murrao"]
+    ana.close()
+    beto.close()

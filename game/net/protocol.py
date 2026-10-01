@@ -4,13 +4,15 @@ Mensagens do jogador para o servidor:
     login / register {user, password, version}   entrar na conta / criar conta (sempre a primeira mensagem)
     save    {character}                          grava o personagem no banco do servidor
     hello   {name, look, map, x, y, facing}      entrar no mundo: quem eu sou e onde estou
-    move    {map, x, y, facing, run}             comecei um passo para (x, y) / virei / troquei de mapa
+    move    {map, x, y, facing, run, sit}        comecei um passo para (x, y) / virei / troquei de mapa / sentei
     emote   {text}                               balão de fala
     status  {battle}                             entrei ou saí de uma batalha
     challenge {to, fighter}                      desafiar o jogador `to` para um duelo (fighter: core/duel.py)
     answer    {to, yes, fighter}                 aceitar (ou não) o desafio de `to`
     duel      {action}                           uma jogada no duelo (vai só para o oponente)
     duel_over                                    o duelo acabou
+    swap_ask / swap_cards / swap_offer / swap_answer {to, ...}   mesa de troca (scenes/cafe.py); o servidor
+                                                 entrega só para `to`, com "from" e "name" de quem mandou
 Mensagens do servidor para o jogador:
     account {character}         login ok: o personagem salvo (ou null, conta nova)
     denied  {text}              login/cadastro recusado (pode tentar de novo)
@@ -30,7 +32,7 @@ import json
 import socket
 
 PORT = 50550
-VERSION = 3                  # muda quando o formato das mensagens mudar (versões diferentes não se conectam)
+VERSION = 4                  # muda quando o formato das mensagens mudar (versões diferentes não se conectam)
 MAX_LINE = 64 * 1024         # mensagem maior que isso é lixo: a conexão é fechada
 MAX_PLAYERS = 8
 EMOTES = ["Oi!", "Bora duelar?", "Me segue!", "Valeu!", "Kkkkk", "Tchau!"]

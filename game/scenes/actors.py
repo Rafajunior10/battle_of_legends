@@ -2,12 +2,15 @@
 import random
 from collections import deque
 
+import pygame
+
 from game.data.world import DIR_VECTORS
 from game.engine.settings import TILE
 
 WALK_TIME = 0.24     # segundos para andar 1 tile
 RUN_TIME = 0.13
 FOOT_Y = 13          # altura do pé dentro do tile: o desenho é alinhado por baixo e centralizado no tile
+SIT_DROP, SIT_CROP = 6, 12   # sentado: o corpo desce um pouco e as pernas somem atrás do assento
 
 
 class Actor:
@@ -18,6 +21,7 @@ class Actor:
         self.progress = 0.0
         self.step_time = WALK_TIME
         self.parity = 0
+        self.sitting = False
         self.place(tx, ty)
 
     def place(self, tx, ty):
@@ -65,8 +69,12 @@ class Actor:
 
     def draw(self, surf, cam):
         img = self.image()
-        x = round(self.px) + (TILE - img.get_width()) // 2
-        surf.blit(img, (x - cam[0], round(self.py) + FOOT_Y - img.get_height() - cam[1]))
+        x = round(self.px) + (TILE - img.get_width()) // 2 - cam[0]
+        y = round(self.py) + FOOT_Y - img.get_height() - cam[1]
+        if self.sitting:                 # sentado: mostra só até a cintura, um pouco mais baixo
+            surf.blit(img, (x, y + SIT_DROP), pygame.Rect(0, 0, img.get_width(), img.get_height() - SIT_CROP))
+            return
+        surf.blit(img, (x, y))
 
 
 class NPC(Actor):
@@ -105,14 +113,15 @@ class RemotePlayer(Actor):
         self.emote_t = 0.0
         self.battle = False
 
-    def queue_move(self, map_id, x, y, facing, run):
-        self.pending.append((map_id, x, y, facing, run))
+    def queue_move(self, map_id, x, y, facing, run, sit=False):
+        self.pending.append((map_id, x, y, facing, run, sit))
         if len(self.pending) > LAG_LIMIT:
             last = self.pending[-1]
             self.pending.clear()
             self.map_id = last[0]
             self.place(last[1], last[2])
             self.facing = last[3]
+            self.sitting = last[5]
 
     def say(self, text, seconds=3.0):
         self.emote, self.emote_t = text, seconds
@@ -124,10 +133,14 @@ class RemotePlayer(Actor):
         self.update(dt)
         if self.moving or not self.pending:
             return
-        map_id, x, y, facing, run = self.pending.popleft()
+        map_id, x, y, facing, run, sit = self.pending.popleft()
         dx, dy = x - self.tx, y - self.ty
         direction = next((d for d, v in DIR_VECTORS.items() if v == (dx, dy)), None)
-        if map_id == self.map_id and direction:
+        if sit or self.sitting:          # sentar e levantar não têm passo: só reposiciona
+            self.sitting = sit
+            self.map_id = map_id
+            self.place(x, y)
+        elif map_id == self.map_id and direction:
             self.start_move(direction, RUN_TIME if run else WALK_TIME)
         else:                        # virou no lugar, trocou de mapa ou pulou: só reposiciona
             self.map_id = map_id

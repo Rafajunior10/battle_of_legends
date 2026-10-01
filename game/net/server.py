@@ -4,7 +4,8 @@ Cada conexão passa por 3 etapas (uma `Session` guarda em qual está):
     1. login / register   confere a conta no banco (database.py) e devolve o personagem salvo (ou None)
     2. hello              entra no mundo: os outros veem você chegar
     3. no mundo           move / emote / status são repassados aos outros; save grava o personagem no banco;
-                          challenge / answer / duel / duel_over cuidam dos duelos entre jogadores (PvP)
+                          challenge / answer / duel / duel_over cuidam dos duelos entre jogadores (PvP);
+                          swap_* (mesa de troca da lanchonete) são só repassados para o outro jogador
 O servidor guarda os personagens e a posição de cada um. As regras do jogo (batalhas, loja) rodam no
 computador de cada jogador, que manda o personagem atualizado com "save".
 """
@@ -19,8 +20,9 @@ from dataclasses import dataclass
 from game.net.database import AccountError, Database
 from game.net.protocol import MAX_PLAYERS, VERSION, LineReader, encode
 
-STATE_KEYS = ("name", "look", "map", "x", "y", "facing", "battle")   # o que o servidor guarda de cada um
+STATE_KEYS = ("name", "look", "map", "x", "y", "facing", "battle", "sit")   # o que o servidor guarda de cada um
 DUEL_MESSAGES = {"challenge": "_challenge", "answer": "_answer", "duel": "_duel_action", "duel_over": "_duel_over"}
+RELAY_MESSAGES = {"swap_ask", "swap_cards", "swap_offer", "swap_answer"}   # mesa de troca: só repassa
 WRONG_VERSION = "Versão do jogo diferente: os dois precisam da mesma versão (baixe a última)."
 
 
@@ -113,6 +115,8 @@ class WorldServer:
                 return self._hello(conn, session, message)
         elif kind in DUEL_MESSAGES:
             getattr(self, DUEL_MESSAGES[kind])(session.player_id, message)
+        elif kind in RELAY_MESSAGES:
+            self._relay(session.player_id, message)
         else:
             self._handle(session.player_id, message)
         return True
@@ -179,8 +183,9 @@ class WorldServer:
             if kind == "move":
                 for key in ("map", "x", "y", "facing"):
                     state[key] = message.get(key, state[key])
+                state["sit"] = bool(message.get("sit"))
                 out = {"t": "move", "id": player_id, "map": state["map"], "x": state["x"], "y": state["y"],
-                       "facing": state["facing"], "run": bool(message.get("run"))}
+                       "facing": state["facing"], "run": bool(message.get("run")), "sit": state["sit"]}
             elif kind == "emote":
                 out = {"t": "emote", "id": player_id, "text": str(message.get("text", ""))[:40]}
             elif kind == "status":
@@ -189,6 +194,17 @@ class WorldServer:
             else:
                 return                                    # mensagem desconhecida: ignora
         self._broadcast(out, exclude=player_id)
+
+    # ------------------------------------------------------------ mesa de troca
+    def _relay(self, player_id: int, message: dict) -> None:
+        """Entrega a mensagem só para `to`, dizendo quem mandou (as regras da troca rodam nos dois PCs)."""
+        target = message.get("to")
+        with self.lock:
+            me = self.players.get(player_id)
+            ok = me is not None and target in self.players and target != player_id
+        if ok:
+            out = {k: v for k, v in message.items() if k != "to"}
+            self._send_to(target, dict(out, **{"from": player_id, "name": me["name"]}))
 
     # ------------------------------------------------------------ duelos (PvP)
     def _challenge(self, player_id: int, message: dict) -> None:

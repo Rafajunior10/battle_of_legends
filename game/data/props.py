@@ -14,6 +14,7 @@ class ObjectDef:
 
     solid: quantas linhas de baixo bloqueiam a passagem (0 = dá para passar por cima/atrás).
     door:  posição da porta dentro da figura (coluna, linha), se houver.
+    counter: é balcão (dá para falar com quem está do outro lado).
     tileset vazio = desenho feito por código (pixelart.py), como o Coliseu.
     """
     tileset: str
@@ -23,6 +24,7 @@ class ObjectDef:
     h: int
     solid: int
     door: tuple[int, int] | None = None
+    counter: bool = False
 
     def footprint(self, x: int, y: int) -> set[tuple[int, int]]:
         """Tiles bloqueados quando a figura é colocada com o canto de cima à esquerda em (x, y)."""
@@ -49,8 +51,22 @@ OBJECTS = {
     "house_modern_gray": ObjectDef("", 0, 0, 5, 5, 3, door=(2, 4)),
     "card_shop": ObjectDef("", 0, 0, 6, 4, 2, door=(3, 3)),
     "arena": ObjectDef("", 0, 0, 7, 5, 3, door=(3, 4)),
-    "construction": ObjectDef("", 0, 0, 6, 5, 3),
+    "snack_bar": ObjectDef("", 0, 0, 6, 5, 3, door=(3, 4)),
     "lamp": ObjectDef("", 0, 0, 1, 2, 1),
+    # ---- móveis da lanchonete (interiors.py)
+    "counter": ObjectDef("", 0, 0, 10, 2, 2, counter=True),
+    "soda_fridge": ObjectDef("", 0, 0, 2, 3, 1),
+    "freezer": ObjectDef("", 0, 0, 2, 2, 1),
+    "tv": ObjectDef("", 0, 0, 4, 2, 0),
+    "puff_red": ObjectDef("", 0, 0, 1, 1, 1),
+    "puff_yellow": ObjectDef("", 0, 0, 1, 1, 1),
+    "puff_blue": ObjectDef("", 0, 0, 1, 1, 1),
+    "chair_r": ObjectDef("", 0, 0, 1, 2, 1),
+    "chair_l": ObjectDef("", 0, 0, 1, 2, 1),
+    "table": ObjectDef("", 0, 0, 2, 2, 2),
+    "trade_table": ObjectDef("", 0, 0, 3, 2, 2),
+    "plant": ObjectDef("", 0, 0, 1, 2, 1),
+    "jukebox": ObjectDef("", 0, 0, 1, 2, 1),
     # ---- natureza
     "tree": ObjectDef(N, 0, 0, 2, 2, 1),
     "pine": ObjectDef(N, 2, 0, 2, 2, 1),

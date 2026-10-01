@@ -11,7 +11,7 @@ from typing import ClassVar
 
 import pygame
 
-from game.core import abilities
+from game.core import abilities, food
 from game.core import events as ev
 from game.core.ai import choose_card, drogoz_discards, mimo_pick
 from game.core.combat import Combatant, end_turn, loser, pay_card, start_turn
@@ -29,6 +29,7 @@ from game.core.effects import (
 )
 from game.core.rules import HAND_SIZE, ICE_LIMIT
 from game.data.cards import ARCHETYPE_NAMES, Deck
+from game.data.food import FOOD
 from game.data.legends import LEGENDS
 from game.data.opponents import rewards
 from game.engine import sfx
@@ -140,6 +141,7 @@ class BattleScene(BattleHUD, Scene):
         self.enemy.icon = hud_icon(sprites.face(spec["look"]) if "look" in spec else front)
         self.fighters = (self.player, self.enemy)
         self.legend_ids = {self.player: ch.legend, self.enemy: spec.get("legend")}
+        self.snacks = self.take_snacks()
         self.picked = []        # Drogoz: POSIÇÕES na mão das cartas marcadas (cartas iguais são ==)
         self.revealed = []      # Mimo: as 2 cartas reveladas do topo
         self.option = 0         # Mimo: cursor nas reveladas (o último é "não jogar")
@@ -160,7 +162,7 @@ class BattleScene(BattleHUD, Scene):
         self.shake_power = 0
         self.hitstop = 0.0      # pausa curtinha no impacto
         self.run(SlideIn(), Msg(spec["intro"], auto=None),
-                 *self.transformation(self.player), *self.transformation(self.enemy),
+                 *self.transformation(self.player), *self.transformation(self.enemy), Call(self.eat_snacks),
                  Msg(f"Os dois embaralham e compram {HAND_SIZE} cartas...", auto=0.6), Call(self.deal))
 
     def on_enter(self):
@@ -174,6 +176,12 @@ class BattleScene(BattleHUD, Scene):
     def first(self):
         """Quem joga primeiro."""
         return self.player
+
+    def take_snacks(self):
+        """Lanches da lanchonete (data/food.py) de cada duelista. O seu é gasto nesta batalha."""
+        ch = self.game.character
+        mine, ch.snack = ch.snack, ""
+        return {self.player: mine, self.enemy: self.spec.get("snack")}
 
     def sent(self, action):
         """Você fez uma jogada (no duelo online ela vai para o outro computador)."""
@@ -205,6 +213,18 @@ class BattleScene(BattleHUD, Scene):
         f.icon = sprites.legend_image(legend_id, "portrait", HUD_ICON)
         f.state.name = legend.name.upper()
         f.disp_hp = float(f.state.hp)
+
+    def eat_snacks(self):
+        """Depois da transformação: o lanche soma PV (core/food.py)."""
+        steps = []
+        for f, snack in self.snacks.items():
+            bonus = food.boost(f.state, snack)
+            if bonus:
+                f.disp_hp = float(f.state.hp)
+                who = "Você" if f.is_player else f.name
+                steps += [FX("heal", f.center), Msg(f"{who} comeu {FOOD[snack].name} na lanchonete: +{bonus} PV!",
+                                                    auto=0.8)]
+        return steps
 
     # ------------------------------------------------------------ fila
     @property

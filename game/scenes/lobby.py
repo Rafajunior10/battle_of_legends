@@ -43,11 +43,12 @@ from game.engine.settings import (
     TILE,
 )
 from game.engine.ui import Menu, Prompt, draw_box, draw_outlined, draw_text, text_width
-from game.graphics import buildings, sprites, tilemap
+from game.graphics import buildings, interiors, sprites, tilemap
 from game.graphics import pixelart as art
 from game.net.protocol import EMOTES
 from game.scenes.actors import FOOT_Y, NPC, RUN_TIME, WALK_TIME, Actor, RemotePlayer
 from game.scenes.base import Scene
+from game.scenes.cafe import CafeMixin
 from game.scenes.common import draw_bets
 from game.scenes.profile import draw_profile
 
@@ -68,15 +69,16 @@ BUILDERS = {
     "house_modern_gray": lambda label: buildings.modern_house((90, 90, 104), SAND, label),
     "card_shop": lambda label: buildings.card_shop(label or "LOJA DE CARTAS"),
     "arena": lambda label: buildings.arena(label or "ARENA"),
-    "construction": lambda label: buildings.construction(label or "NOVA CONSTRUÇÃO"),
+    "snack_bar": lambda label: buildings.snack_bar(label or "LANCHONETE"),
     "lamp": lambda label: buildings.street_lamp(),
     "coliseum": lambda label: art.coliseum(),
+    **{name: (lambda label, draw=draw: draw()) for name, draw in interiors.FURNITURE.items()},   # móveis
 }
 MISSING_PACK = ("O pacote de arte Ninja Adventure não foi encontrado em assets/ninja_adventure/. "
                 "Ele vem junto com o projeto: baixe o repositório de novo ou veja assets/README.txt.")
 
 
-class LobbyScene(Scene):
+class LobbyScene(CafeMixin, Scene):
     def __init__(self, game, first_time=False, map_id=START_MAP, spot=HOME_SPOT, facing="down"):
         super().__init__(game)
         self.ch = game.character
@@ -99,6 +101,8 @@ class LobbyScene(Scene):
         self.remotes = {}                  # id -> RemotePlayer (os outros jogadores)
         self.my_emote, self.my_emote_t = None, 0.0
         self.notice, self.notice_t = "", 0.0      # aviso no topo: "FULANO entrou no mundo!"
+        self.swap_invite = None            # convite para a mesa de troca, esperando a tela ficar livre
+        self.gabi_tip = 0
         self.duel_invite = None            # desafio de duelo recebido, esperando a tela ficar livre
         self.load_map(map_id, spot, facing)
         for player in getattr(self.net, "initial_players", []):
@@ -119,12 +123,19 @@ class LobbyScene(Scene):
             t = TRAINERS[tid]
             self.npcs.append(NPC(tid, sp, sprites.character_frames(t["look"]), lambda tid=tid: self.talk_trainer(tid),
                                  t["look"]))
-        helper_talk = {"beto": self.talk_beto, "nina": self.talk_nina, "rosa": self.talk_rosa}
+        helper_talk = {"beto": self.talk_beto, "nina": self.talk_nina, "rosa": self.talk_rosa,
+                       "lu": self.talk_lu, "gabi": self.talk_gabi}
         for hid, helper in self.map_def.helpers.items():
-            self.npcs.append(NPC(hid, helper.spot, sprites.character_frames(helper.look), helper_talk[hid],
-                                 helper.look))
+            npc = NPC(hid, helper.spot, sprites.character_frames(helper.look), helper_talk[hid], helper.look)
+            npc.sitting = helper.sitting
+            self.npcs.append(npc)
         self.doors = {pos: self.door_action(kind) for pos, kind in self.map_def.doors.items()}
-        self.ground = tilemap.render_ground(self.map)
+        if self.map_def.interior:          # interior: chão e paredes desenhados por código
+            exit_x = min(w.x for w in self.map_def.warps)
+            self.ground = interiors.GROUNDS[self.map_def.interior](self.map_w, self.map_h, exit_x)
+        else:
+            self.ground = tilemap.render_ground(self.map)
+        self.setup_cafe()
         self.player.place(*spot)
         self.player.facing = facing
         self.trade = None
@@ -134,7 +145,8 @@ class LobbyScene(Scene):
         if kind.startswith("locked:"):
             text = kind.split(":", 1)[1]
             return lambda: self.say(text)
-        return {"home": self.enter_home, "shop": self.enter_shop, "coliseum": self.enter_coliseum}[kind]
+        return {"home": self.enter_home, "shop": self.enter_shop, "coliseum": self.enter_coliseum,
+                "cafe": self.enter_cafe}[kind]
 
     def travel(self, warp):
         """Passagem para outro mapa, com transição de tela."""
@@ -253,9 +265,12 @@ class LobbyScene(Scene):
             return
         npc = next((n for n in self.npcs if (n.tx, n.ty) == target), None)
         if npc:
-            npc.facing = OPPOSITE[self.player.facing]
+            if not npc.sitting:
+                npc.facing = OPPOSITE[self.player.facing]
             npc.timer = 4.0
             npc.on_talk()
+        elif self.cafe_interact(target):
+            return
         elif target in self.map_def.signs:
             self.say(self.map_def.signs[target].format(name=self.ch.name.upper()))
         elif target in self.doors:
@@ -425,6 +440,7 @@ class LobbyScene(Scene):
     def update(self, dt):
         self.time += dt
         self.update_online(dt)
+        self.update_tv(dt)
         self.banner_t += dt
         self.bump_cd = max(0.0, self.bump_cd - dt)
         self.prompt.update(dt)
@@ -442,13 +458,14 @@ class LobbyScene(Scene):
         """Avisa a rede: comecei um passo para (tx, ty), virei, ou cheguei num mapa."""
         if self.net:
             self.net.send({"t": "move", "map": self.map_def.id, "x": self.player.tx, "y": self.player.ty,
-                           "facing": self.player.facing, "run": running})
+                           "facing": self.player.facing, "run": running, "sit": self.player.sitting})
 
     def add_remote(self, info):
         frames = sprites.character_frames(look_from(info.get("look")))
         remote = RemotePlayer(info["id"], info.get("name", "???"), frames,
                               info.get("map"), info.get("x", 0), info.get("y", 0), info.get("facing"))
         remote.battle = bool(info.get("battle"))
+        remote.sitting = bool(info.get("sit"))
         self.remotes[remote.id] = remote
 
     def update_online(self, dt):
@@ -465,6 +482,8 @@ class LobbyScene(Scene):
             remote.tick(dt)
         if self.duel_invite and not self.paused:
             self.ask_challenge(self.duel_invite)
+        elif self.swap_invite and not self.paused:
+            self.ask_swap_invite(self.swap_invite)
 
     def on_net_message(self, message):
         kind = message["t"]
@@ -477,13 +496,15 @@ class LobbyScene(Scene):
             self.banner(f"{remote.name} saiu do mundo.")
         elif kind == "move" and remote:
             remote.queue_move(message.get("map"), message.get("x"), message.get("y"), message.get("facing"),
-                              message.get("run"))
+                              message.get("run"), bool(message.get("sit")))
         elif kind == "emote" and remote:
             remote.say(message.get("text", ""))
         elif kind == "status" and remote:
             remote.battle = bool(message.get("battle"))
         elif kind in ("challenge", "challenge_denied", "duel_start"):
             self.on_duel_message(message)
+        elif kind.startswith("swap_"):
+            self.on_swap_message(message)
         elif kind == "disconnected":
             self.remotes.clear()
             self.game.leave_online()
@@ -562,6 +583,9 @@ class LobbyScene(Scene):
         if direction is None:
             self.chain = False
             self.turn_delay = 0.0
+            return
+        if self.player.sitting:            # sentado: qualquer direção levanta
+            self.stand_up(direction)
             return
         if self.player.facing != direction and not self.chain:
             self.player.facing = direction
@@ -642,10 +666,19 @@ class LobbyScene(Scene):
         layer = [(foot, 0, img, x, y) for img, x, y, foot in self.figures if view.collidepoint(x, y)]
         # 1: no mesmo pé, o personagem fica na frente do objeto
         layer.extend((actor.py + TILE, 1, actor, 0, 0) for actor in (*self.npcs, *self.remotes_here(), self.player))
+        if self.tv_spot:                   # 2: a tela da TV, logo depois do desenho da TV
+            layer.append((self.tv_foot, 2, None, 0, 0))
         shadow = tilemap.actor_shadow()
         for _, kind, thing, x, y in sorted(layer, key=lambda item: (item[0], item[1])):
             if kind == 0:
                 surf.blit(thing, (x - cam[0], y - cam[1]))
+                continue
+            if kind == 2:
+                self.draw_tv(surf, cam)
+                continue
+            if thing.sitting:
+                thing.draw(surf, cam)
+                self.draw_seat_front(surf, thing, cam)
                 continue
             surf.blit(shadow, (round(thing.px) + 1 - cam[0], round(thing.py) + 12 - cam[1]))
             thing.draw(surf, cam)

@@ -1,4 +1,4 @@
-"""Regras de dinheiro e coleção: loja, packs, evolução de cartas e trocas com a Nina.
+"""Regras de dinheiro e coleção: loja, packs, evolução de cartas, trocas com a Nina e entre jogadores.
 
 As funções mudam o personagem ou levantam ShopError com a mensagem para o jogador.
 """
@@ -137,3 +137,21 @@ def accept_trade(ch: Character, offer: TradeOffer) -> None:
         ch.bets -= offer.bets
     ch.remove_card(offer.want)
     ch.add_card(offer.give)
+
+
+# ------------------------------------------------------------ troca entre jogadores (mesa de troca)
+def can_swap(ch: Character, give: str, receive: str) -> None:
+    """Confere se `ch` pode dar `give` e receber `receive`. Levanta ShopError com o motivo."""
+    if give not in CARDS or receive not in CARDS:
+        raise ShopError("Essa carta não existe.")
+    if ch.spare(give) <= 0:
+        raise ShopError(f"{_name(give)} não está mais sobrando (tire do deck antes de trocar).")
+    if give != receive and not ch.can_add(receive):
+        raise ShopError(f"Você já tem {MAX_COPIES} cópias de {_name(receive)}.")
+
+
+def swap_card(ch: Character, give: str, receive: str) -> None:
+    """Troca de carta com outro jogador: sai uma cópia sobrando de `give`, entra uma de `receive`."""
+    can_swap(ch, give, receive)
+    ch.remove_card(give)
+    ch.add_card(receive)

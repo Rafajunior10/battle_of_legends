@@ -33,6 +33,10 @@ class DuelScene(BattleScene):
     def first(self):
         return self.player if self.side == duel_rules.CHALLENGER else self.enemy
 
+    def take_snacks(self):
+        """No duelo online o lanche não vale (e não é gasto): os dois PCs precisam começar iguaizinhos."""
+        return {}
+
     def sent(self, action):
         if self.game.net:
             self.game.net.send({"t": "duel", "action": action})

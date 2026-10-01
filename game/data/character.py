@@ -20,6 +20,7 @@ from game.data.cards import (
     UTILITY,
     CardDef,
 )
+from game.data.food import FOOD
 from game.data.legends import LEGENDS, default_legend
 from game.data.looks import Look
 from game.engine.settings import SAVE_PATH
@@ -77,6 +78,7 @@ class Character:
     wins: int = 0
     losses: int = 0
     coliseum_wins: int = 0                        # vezes que foi campeão do torneio do Coliseu
+    snack: str = ""                               # lanche da lanchonete (data/food.py) para a próxima batalha
     beaten: list[str] = field(default_factory=list)   # treinadores já derrotados
     bets: int = START_BETS                        # moeda do jogo
     level: int = 1
@@ -300,5 +302,6 @@ class Character:
         self.bets = max(0, int(self.bets))
         self.battle_xp = max(0, int(self.battle_xp))
         self.coliseum_wins = max(0, int(self.coliseum_wins))
+        self.snack = self.snack if self.snack in FOOD else ""
         self.card_levels = {c: max(1, min(MAX_CARD_LEVEL, int(n))) for c, n in dict(self.card_levels).items()
                             if c in CARDS}
