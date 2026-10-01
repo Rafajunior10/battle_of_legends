@@ -23,6 +23,7 @@ class Game:
         sfx.init()
         self.character = None
         self.lobby = None
+        self.net = None          # conexão com o mundo compartilhado (game.net.client.WorldClient) ou None
         self.transition = None
         self.running = True
         self.scene = None
@@ -74,6 +75,8 @@ class Game:
 
     def start_battle(self, spec, on_end):
         from game.scenes.battle import BattleScene
+        if self.net:
+            self.net.send({"t": "status", "battle": True})   # os outros veem a espada em cima de você
         sfx.music(None)
         sfx.play("encounter")
         self.transition_to(lambda: BattleScene(self, spec, on_end), style="battle")
@@ -85,6 +88,12 @@ class Game:
     def quit(self):
         self.running = False
 
+    def leave_online(self):
+        """Sai do mundo compartilhado (e fecha o servidor, se este computador estava hospedando)."""
+        if self.net is not None:
+            self.net.close()
+            self.net = None
+
     def run(self):
         """Laço principal. Ctrl+C no terminal fecha o jogo normalmente, sem mostrar erro."""
         try:
@@ -93,6 +102,7 @@ class Game:
         except KeyboardInterrupt:
             print("Card Quest fechado pelo terminal (Ctrl+C).")
         finally:
+            self.leave_online()
             pygame.quit()
 
     def frame(self):

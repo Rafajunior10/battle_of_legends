@@ -4,6 +4,7 @@ entra na loja e no coliseu e passa de um mapa a outro pelas passagens.
 Os dados dos mapas e das falas ficam em game/data/world.py; aqui só o comportamento.
 """
 import random
+from dataclasses import fields
 
 import pygame
 
@@ -11,6 +12,7 @@ from game.core import economy
 from game.core.economy import ShopError
 from game.core.tournament import ROUND_TITLES, ROUNDS, TOURNAMENT_PRIZE, XP_MULTIPLIER, Tournament
 from game.data.cards import CARDS
+from game.data.looks import Look
 from game.data.opponents import TRAINERS, random_wild, trainer_spec
 from game.data.props import OBJECTS
 from game.data.world import (
@@ -41,10 +43,11 @@ from game.engine.settings import (
     RUN_KEYS,
     TILE,
 )
-from game.engine.ui import Menu, Prompt, draw_box, draw_text, text_width
+from game.engine.ui import Menu, Prompt, draw_box, draw_outlined, draw_text, text_width
 from game.graphics import buildings, sprites, tilemap
 from game.graphics import pixelart as art
-from game.scenes.actors import NPC, RUN_TIME, WALK_TIME, Actor
+from game.net.protocol import EMOTES
+from game.scenes.actors import FOOT_Y, NPC, RUN_TIME, WALK_TIME, Actor, RemotePlayer
 from game.scenes.base import Scene
 from game.scenes.common import draw_bets
 from game.scenes.profile import draw_profile
@@ -57,6 +60,9 @@ BANNER_TIME = 3.0
 MENU_OPTIONS = ["DECK", "FICHA", "SALVAR", "OPÇÕES", "FECHAR", "SAIR"]
 CREAM, WHITE_WALL, SAND = (244, 236, 220), (248, 244, 236), (232, 220, 196)
 # Construções desenhadas por código (buildings.py): recebem o texto da placa
+LOOK_KEYS = {f.name for f in fields(Look)}     # campos aceitos na aparência que vem pela rede
+NOTICE_TIME = 3.0                              # segundos do aviso "FULANO entrou no mundo!"
+
 BUILDERS = {
     "house_modern_red": lambda label: buildings.modern_house((196, 72, 60), CREAM, label),
     "house_modern_blue": lambda label: buildings.modern_house((70, 110, 170), CREAM, label),
@@ -91,7 +97,13 @@ class LobbyScene(Scene):
         self.trade = None          # oferta atual da Nina (economy.TradeOffer)
         self.tournament = None     # torneio do coliseu em andamento
         self.first_time = first_time
+        self.net = game.net                # conexão com o mundo compartilhado (None = jogando sozinho)
+        self.remotes = {}                  # id -> RemotePlayer (os outros jogadores)
+        self.my_emote, self.my_emote_t = None, 0.0
+        self.notice, self.notice_t = "", 0.0      # aviso no topo: "FULANO entrou no mundo!"
         self.load_map(map_id, spot, facing)
+        for player in getattr(self.net, "initial_players", []):
+            self.add_remote(player)
 
     # ------------------------------------------------------------ troca de mapa
     def load_map(self, map_id, spot, facing):
@@ -117,6 +129,7 @@ class LobbyScene(Scene):
         self.player.place(*spot)
         self.player.facing = facing
         self.trade = None
+        self.send_position()
 
     def door_action(self, kind):
         if kind.startswith("locked:"):
@@ -144,6 +157,8 @@ class LobbyScene(Scene):
 
     def on_enter(self):
         sfx.music("lobby")
+        if self.net:
+            self.net.send({"t": "status", "battle": False})
         self.banner_t = 0.0
         self.chain = False
         if self.first_time:
@@ -232,6 +247,10 @@ class LobbyScene(Scene):
     def interact(self):
         dx, dy = DIR_VECTORS[self.player.facing]
         target = (self.player.tx + dx, self.player.ty + dy)
+        remote = next((r for r in self.remotes_here() if (r.tx, r.ty) == target), None)
+        if remote and self.net:
+            self.talk_to_player(remote)
+            return
         npc = next((n for n in self.npcs if (n.tx, n.ty) == target), None)
         if npc:
             npc.facing = OPPOSITE[self.player.facing]
@@ -404,6 +423,7 @@ class LobbyScene(Scene):
 
     def update(self, dt):
         self.time += dt
+        self.update_online(dt)
         self.banner_t += dt
         self.bump_cd = max(0.0, self.bump_cd - dt)
         self.prompt.update(dt)
@@ -416,6 +436,71 @@ class LobbyScene(Scene):
         if not paused and not self.player.moving:
             self.update_movement(dt)
 
+    # ------------------------------------------------------------ mundo compartilhado (online)
+    def send_position(self, running=False):
+        """Avisa a rede: comecei um passo para (tx, ty), virei, ou cheguei num mapa."""
+        if self.net:
+            self.net.send({"t": "move", "map": self.map_def.id, "x": self.player.tx, "y": self.player.ty,
+                           "facing": self.player.facing, "run": running})
+
+    def add_remote(self, info):
+        look = Look(**{k: v for k, v in (info.get("look") or {}).items() if k in LOOK_KEYS}).fitted()
+        remote = RemotePlayer(info["id"], info.get("name", "???"), sprites.character_frames(look),
+                              info.get("map"), info.get("x", 0), info.get("y", 0), info.get("facing"))
+        remote.battle = bool(info.get("battle"))
+        self.remotes[remote.id] = remote
+
+    def update_online(self, dt):
+        """Lê o que chegou da rede e anima os outros jogadores (mesmo com um menu aberto)."""
+        self.my_emote_t = max(0.0, self.my_emote_t - dt)
+        self.notice_t = max(0.0, self.notice_t - dt)
+        if self.net is None:
+            return
+        for message in self.net.poll():
+            self.on_net_message(message)
+            if self.net is None:
+                return
+        for remote in self.remotes.values():
+            remote.tick(dt)
+
+    def on_net_message(self, message):
+        kind = message["t"]
+        remote = self.remotes.get(message.get("id"))
+        if kind == "join":
+            self.add_remote(message["player"])
+            self.banner(f"{message['player'].get('name', '???')} entrou no mundo!")
+        elif kind == "leave" and remote:
+            del self.remotes[remote.id]
+            self.banner(f"{remote.name} saiu do mundo.")
+        elif kind == "move" and remote:
+            remote.queue_move(message.get("map"), message.get("x"), message.get("y"), message.get("facing"),
+                              message.get("run"))
+        elif kind == "emote" and remote:
+            remote.say(message.get("text", ""))
+        elif kind == "status" and remote:
+            remote.battle = bool(message.get("battle"))
+        elif kind == "disconnected":
+            self.remotes.clear()
+            self.game.leave_online()
+            self.net = None
+            self.say("A conexão com o mundo online caiu. Você continua jogando sozinho.")
+
+    def banner(self, text):
+        """Aviso curto no topo da tela (quem entrou/saiu)."""
+        self.notice, self.notice_t = text, NOTICE_TIME
+
+    def talk_to_player(self, remote):
+        """Interagir com outro jogador: escolher uma fala rápida, que aparece num balão para os dois."""
+        def chosen(index):
+            if 0 <= index < len(EMOTES):
+                self.my_emote, self.my_emote_t = EMOTES[index], 3.0
+                self.net.send({"t": "emote", "text": EMOTES[index]})
+        self.prompt.choose(f"Dizer o que para {remote.name}?", [*EMOTES, "NADA"], chosen)
+
+    def remotes_here(self):
+        """Os outros jogadores que estão neste mesmo mapa."""
+        return [r for r in self.remotes.values() if r.map_id == self.map_def.id]
+
     def update_movement(self, dt):
         keys = pygame.key.get_pressed()
         direction = next((d for k, d in KEY_DIRS if keys[k]), None)
@@ -426,6 +511,7 @@ class LobbyScene(Scene):
         if self.player.facing != direction and not self.chain:
             self.player.facing = direction
             self.turn_delay = TURN_DELAY
+            self.send_position()
             return
         if self.turn_delay > 0:
             self.turn_delay -= dt
@@ -434,6 +520,7 @@ class LobbyScene(Scene):
         if self.walkable(self.player.tx + dx, self.player.ty + dy):
             running = any(keys[k] for k in RUN_KEYS)
             self.player.start_move(direction, RUN_TIME if running else WALK_TIME)
+            self.send_position(running)
             self.chain = True
         else:
             self.player.facing = direction
@@ -482,6 +569,8 @@ class LobbyScene(Scene):
         cam = self.camera()
         surf.blit(self.ground, (0, 0), pygame.Rect(cam, (GAME_W, GAME_H)))
         self.draw_standing(surf, cam)
+        self.draw_online_labels(surf, cam)
+        self.draw_notice(surf)
 
         self.draw_banner(surf)
         if self.showing_profile:
@@ -497,7 +586,7 @@ class LobbyScene(Scene):
         view = pygame.Rect(cam[0] - 64, cam[1] - 64, GAME_W + 128, GAME_H + 128)
         layer = [(foot, 0, img, x, y) for img, x, y, foot in self.figures if view.collidepoint(x, y)]
         # 1: no mesmo pé, o personagem fica na frente do objeto
-        layer.extend((actor.py + TILE, 1, actor, 0, 0) for actor in (*self.npcs, self.player))
+        layer.extend((actor.py + TILE, 1, actor, 0, 0) for actor in (*self.npcs, *self.remotes_here(), self.player))
         shadow = tilemap.actor_shadow()
         for _, kind, thing, x, y in sorted(layer, key=lambda item: (item[0], item[1])):
             if kind == 0:
@@ -507,6 +596,39 @@ class LobbyScene(Scene):
             thing.draw(surf, cam)
             if self.tile_at(thing.tx, thing.ty) == TALL_GRASS and not thing.moving:
                 self.draw_grass_front(surf, thing, cam)
+
+    def draw_online_labels(self, surf, cam):
+        """Nome em cima de cada jogador online, a espada de quem está em batalha e os balões de fala."""
+        for remote in self.remotes_here():
+            x = round(remote.px) + TILE // 2 - cam[0]
+            top = round(remote.py) + FOOT_Y - remote.image().get_height() - cam[1]
+            draw_outlined(surf, remote.name, (x, top - 11), (255, 255, 160) if remote.battle else (255, 255, 255),
+                          (20, 20, 32), size=12, align="center")
+            if remote.battle:                       # espada ao lado do nome: está numa batalha
+                surf.blit(art.icon("sword"), (x + text_width(remote.name, 12) // 2 + 3, top - 12))
+            if remote.emote:
+                self.draw_bubble(surf, remote.emote, x, top - 14)
+        if self.my_emote and self.my_emote_t > 0:
+            x = round(self.player.px) + TILE // 2 - cam[0]
+            top = round(self.player.py) + FOOT_Y - self.player.image().get_height() - cam[1]
+            self.draw_bubble(surf, self.my_emote, x, top - 2)
+
+    @staticmethod
+    def draw_bubble(surf, text, x, bottom):
+        width = text_width(text, 12) + 10
+        rect = pygame.Rect(x - width // 2, bottom - 15, width, 13)
+        pygame.draw.rect(surf, (20, 20, 32), rect.inflate(2, 2), border_radius=4)
+        pygame.draw.rect(surf, (255, 255, 255), rect, border_radius=4)
+        pygame.draw.polygon(surf, (255, 255, 255), [(x - 3, rect.bottom), (x + 3, rect.bottom), (x, rect.bottom + 4)])
+        draw_text(surf, text, (x, rect.y + 1), size=12, shadow=None, align="center")
+
+    def draw_notice(self, surf):
+        if self.notice_t <= 0:
+            return
+        width = text_width(self.notice, 12) + 20
+        rect = pygame.Rect(GAME_W - width - 6, 6, width, 18)
+        draw_box(surf, rect)
+        draw_text(surf, self.notice, (rect.centerx, rect.y + 3), size=12, align="center")
 
     def draw_grass_front(self, surf, actor, cam):
         """Metade de baixo do mato alto por cima do personagem: parece que ele está dentro do mato."""

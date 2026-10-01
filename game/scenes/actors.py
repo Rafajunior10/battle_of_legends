@@ -1,5 +1,6 @@
 """Personagens que andam no mapa em grade (estilo Pokémon)."""
 import random
+from collections import deque
 
 from game.data.world import DIR_VECTORS
 from game.engine.settings import TILE
@@ -85,3 +86,50 @@ class NPC(Actor):
         if self.timer <= 0:
             self.timer = random.uniform(1.5, 4.0)
             self.facing = random.choice(list(DIR_VECTORS))
+
+
+LAG_LIMIT = 4        # passos acumulados (internet lenta): o boneco pula direto para o último
+
+
+class RemotePlayer(Actor):
+    """Outro jogador do mundo compartilhado. Cada passo dele chega pela rede e entra numa fila; aqui ele
+    anda os passos um de cada vez, com a mesma animação de quem joga no próprio computador."""
+
+    def __init__(self, player_id, name, frames, map_id, x, y, facing):
+        super().__init__(x, y, frames, facing or "down")
+        self.id = player_id
+        self.name = name
+        self.map_id = map_id
+        self.pending = deque()       # passos que chegaram e ainda não foram andados
+        self.emote = None            # balão de fala atual
+        self.emote_t = 0.0
+        self.battle = False
+
+    def queue_move(self, map_id, x, y, facing, run):
+        self.pending.append((map_id, x, y, facing, run))
+        if len(self.pending) > LAG_LIMIT:
+            last = self.pending[-1]
+            self.pending.clear()
+            self.map_id = last[0]
+            self.place(last[1], last[2])
+            self.facing = last[3]
+
+    def say(self, text, seconds=3.0):
+        self.emote, self.emote_t = text, seconds
+
+    def tick(self, dt):
+        self.emote_t = max(0.0, self.emote_t - dt)
+        if self.emote_t == 0:
+            self.emote = None
+        self.update(dt)
+        if self.moving or not self.pending:
+            return
+        map_id, x, y, facing, run = self.pending.popleft()
+        dx, dy = x - self.tx, y - self.ty
+        direction = next((d for d, v in DIR_VECTORS.items() if v == (dx, dy)), None)
+        if map_id == self.map_id and direction:
+            self.start_move(direction, RUN_TIME if run else WALK_TIME)
+        else:                        # virou no lugar, trocou de mapa ou pulou: só reposiciona
+            self.map_id = map_id
+            self.place(x, y)
+        self.facing = facing or self.facing

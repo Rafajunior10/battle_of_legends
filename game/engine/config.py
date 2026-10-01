@@ -35,6 +35,7 @@ FPS_OPTIONS = [60, 120, 144, 0]     # 0 = sem limite (o vsync ainda segura no ri
 
 bindings = {k: list(v) for k, v in DEFAULT_BINDINGS.items()}
 display = {"fullscreen": False, "scale": 3, "fps": 60, "show_fps": False}
+online = {"address": ""}       # último endereço digitado em ONLINE > ENTRAR
 
 
 class KeySet:
@@ -123,6 +124,8 @@ def load():
             data = json.load(f)
     except (OSError, ValueError):
         return
+    address = data.get("online", {}).get("address", "")
+    online["address"] = address if isinstance(address, str) else ""
     disp = data.get("display", {})
     display["fullscreen"] = bool(disp.get("fullscreen", False))
     if disp.get("scale") in SCALES:
@@ -150,6 +153,6 @@ def _drop_duplicates():
 def save():
     try:
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump({"display": display, "bindings": bindings}, f, indent=2)
+            json.dump({"display": display, "bindings": bindings, "online": online}, f, indent=2)
     except OSError:
         pass

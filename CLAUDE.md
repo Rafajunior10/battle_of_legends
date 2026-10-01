@@ -34,6 +34,11 @@ game-architecture, game-ai, game-ui-pygame, game-testing, game-design, game-debu
   só desenho (mixin `BattleHUD` com painéis, marcadores, mão, botões); `scenes/battle_fx.py` = animações.
 - **Repositório**: github.com/Rafajunior10/battle_of_legends. `assets/mana_seed/` e `assets/static_creatures/`
   ficam fora do git (licença); o jogo e os testes precisam funcionar sem elas.
+- **Online** (`game/net/`): mundo compartilhado. `protocol.py` (mensagens JSON por linha), `server.py` (roda em
+  quem hospeda, numa thread; só guarda posições e repassa), `client.py` (thread de leitura + fila `poll()`).
+  O lobby manda `move` a cada passo (`send_position`) e anima os outros com `actors.RemotePlayer`. Mudou o
+  formato das mensagens? Suba `protocol.VERSION`. Testes de verdade com sockets em `tests/test_net.py` e
+  `tests/test_online.py`. Próximo passo planejado: duelo online entre jogadores (fase 2).
 - **Dados do mundo** (mapa, NPCs, falas) ficam em `game/data/world.py`; `lobby.py` só tem comportamento.
 - **Diálogo com pergunta**: use `ui.Prompt` (`say`, `ask`, `choose`), não recrie DialogBox + Menu na cena.
 - **Cartas vêm da planilha de regras** do usuário; `tests/test_cards.py` (SPREADSHEET) confere os números.

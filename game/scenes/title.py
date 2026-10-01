@@ -18,7 +18,7 @@ class TitleScene(Scene):
     def __init__(self, game):
         super().__init__(game)
         has_save = Character.exists()
-        options = ["NOVO JOGO"] + (["CONTINUAR"] if has_save else []) + ["OPÇÕES", "SAIR"]
+        options = ["NOVO JOGO"] + (["CONTINUAR", "ONLINE"] if has_save else []) + ["OPÇÕES", "SAIR"]
         self.menu = Menu(options, (GAME_W - 96) // 2, GAME_H - 18 - 14 * len(options), width=96, line_h=14)
         if has_save:
             self.menu.index = 1
@@ -56,6 +56,9 @@ class TitleScene(Scene):
             self.game.character = character
             self.game.lobby = LobbyScene(self.game)
             self.game.transition_to(lambda: self.game.lobby)
+        elif option == "ONLINE":
+            from game.scenes.online import OnlineScene
+            self.game.transition_to(lambda: OnlineScene(self.game))
         elif option == "OPÇÕES":
             from game.scenes.options import OptionsScene
             self.game.transition_to(lambda: OptionsScene(self.game, lambda: TitleScene(self.game)))

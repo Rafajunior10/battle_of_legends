@@ -30,6 +30,20 @@ python -m pytest        # regras, IA, save, telas e batalhas inteiras (sem abrir
 python -m ruff check .  # padrão de código (regras em pyproject.toml)
 ```
 
+## Jogar online (mundo compartilhado)
+
+Vocês andam juntos pela vila e pelo bosque, se veem em tempo real (com o nome em cima da cabeça), mandam
+falas rápidas e veem quando o outro está em batalha. Cada um usa o próprio save (BETS, cartas e decks).
+
+1. Os dois instalam o **Radmin VPN** (grátis) e entram na mesma rede dele.
+   Na mesma casa (mesmo Wi-Fi) não precisa disso.
+2. Quem hospeda: título > **ONLINE** > **HOSPEDAR**. Aparecem os endereços deste PC
+   (o do Radmin começa com `26.`). Na primeira vez, o Windows pergunta se o jogo pode usar a rede: permita.
+3. O amigo: título > **ONLINE** > **ENTRAR** e digita o endereço de quem hospeda.
+4. Para falar com o outro, fique de frente para ele e aperte o botão A.
+
+Os dois precisam estar com a **mesma versão** do jogo (baixem a última do GitHub).
+
 ## Legends
 
 Cada deck tem um **tipo** (Fogo, Gelo, Raio ou Veneno) e é liderado por um **legend** do mesmo tipo.
@@ -135,11 +149,13 @@ game/
     transition.py, ui.py     transições, caixas de texto, menus
     config.py, settings.py   opções (config.json), resolução, cores e controles
     sfx.py                   música e sons gerados por código
+  net/                       ONLINE: protocolo, servidor (quem hospeda) e cliente
   scenes/                    TELAS
     battle.py                batalha: fila de passos, turnos, narração e habilidades
     battle_hud.py            desenho da batalha (painéis, marcadores, mão, botões)
     battle_fx.py             animações: transformação, faixa do legend, golpes, partículas
     lobby.py, actors.py      mundo andável e personagens em grade
+    online.py                tela ONLINE: hospedar ou entrar no mundo de um amigo
     shop.py, deckedit.py, create.py, profile.py, options.py, title.py, common.py
 tests/                       pytest
 ```
