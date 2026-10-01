@@ -7,7 +7,8 @@ ninja_adventure/  ->  "Ninja Adventure - Asset Pack" by pixel-boy (and AAA)
                       See ninja_adventure/LICENSE.txt
 
 O jogo lê os personagens, monstros e rostos daqui (game/graphics/assets.py).
-Sem esta pasta, o jogo usa a arte desenhada por código (game/graphics/pixelart.py).
+Esta pasta é obrigatória para os mapas (vem junto com o projeto). Sem ela, só os monstros têm reserva:
+a gosma desenhada por código (game/graphics/pixelart.py).
 
 mana_seed/        ->  "Mana Seed Character Base" (FREE demo 2.0) by Seliel the Shaper
                       https://seliel-the-shaper.itch.io/character-base

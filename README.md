@@ -127,7 +127,7 @@ game/
     mana_seed.py, wardrobe.py  pessoas em camadas e as peças de roupa e cortes derivados
     people.py                pessoas desenhadas por código (quando não há Mana Seed)
     assets.py                lê o pacote Ninja Adventure
-    tilemap.py, tileset.py   chão e objetos dos mapas (pacote / desenho por código)
+    tilemap.py               chão, objetos e sombras dos mapas (pacote Ninja Adventure)
     buildings.py, backgrounds.py  construções com placa e o cenário da batalha
     pixelart.py, pixelfont.py     cartas, ícones e a fonte pixel própria
   engine/                    MOTOR

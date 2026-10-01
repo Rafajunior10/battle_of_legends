@@ -42,7 +42,7 @@ from game.engine.settings import (
     TILE,
 )
 from game.engine.ui import Menu, Prompt, draw_box, draw_text, text_width
-from game.graphics import buildings, sprites, tilemap, tileset
+from game.graphics import buildings, sprites, tilemap
 from game.graphics import pixelart as art
 from game.scenes.actors import NPC, RUN_TIME, WALK_TIME, Actor
 from game.scenes.base import Scene
@@ -68,26 +68,14 @@ BUILDERS = {
     "lamp": lambda label: buildings.street_lamp(),
     "coliseum": lambda label: art.coliseum(),
 }
-# Desenho por código usado quando o pacote de arte não está instalado
-FALLBACK_ART = {
-    "house_orange": lambda: art.house((216, 72, 64), (160, 48, 48)),
-    "house_beige": lambda: art.house((200, 168, 112), (160, 128, 80)),
-    "house_red": lambda: art.house((200, 56, 56), (144, 40, 40)),
-    "house_wood": lambda: art.house((150, 100, 60), (110, 70, 40)),
-    "house_round": lambda: art.house((120, 160, 200), (80, 120, 160)),
-    "market": art.shop,
-    "dojo": art.arena,
-    "hall": art.arena,
-}
-TILE_ART = {",": "tall", "=": "path", "T": "tree", "F": "fence", "S": "sign", "B": "bridge", "R": "rock"}
-ANIMATED_TILES = {WATER, "f"}      # sem o pacote: redesenhados a cada quadro (água e flores animadas)
+MISSING_PACK = ("O pacote de arte Ninja Adventure não foi encontrado em assets/ninja_adventure/. "
+                "Ele vem junto com o projeto: baixe o repositório de novo ou veja assets/README.txt.")
 
 
 class LobbyScene(Scene):
     def __init__(self, game, first_time=False, map_id=START_MAP, spot=HOME_SPOT, facing="down"):
         super().__init__(game)
         self.ch = game.character
-        self.tiles = tileset.tiles()
         self.player = Actor(*spot, sprites.player_frames(self.ch), facing)
         self.prompt = Prompt()
         self.menu = None
@@ -108,10 +96,11 @@ class LobbyScene(Scene):
     # ------------------------------------------------------------ troca de mapa
     def load_map(self, map_id, spot, facing):
         """Monta tudo do mapa: tiles, prédios, NPCs, portas. O chão é pré-desenhado uma vez só."""
+        if not tilemap.available():
+            raise FileNotFoundError(MISSING_PACK)
         self.map_def = MAPS[map_id]
         self.map = self.map_def.build()
         self.map_h, self.map_w = len(self.map), len(self.map[0])
-        self.pack_tiles = tilemap.available()
         self.solid = self.map_def.solid_objects()
         self.figures = self.build_figures()
         self.npcs = []
@@ -124,11 +113,7 @@ class LobbyScene(Scene):
             self.npcs.append(NPC(hid, helper.spot, sprites.character_frames(helper.look), helper_talk[hid],
                                  helper.look))
         self.doors = {pos: self.door_action(kind) for pos, kind in self.map_def.doors.items()}
-        self.ground = self.render_ground()
-        self.animated = [] if self.pack_tiles else [
-            (x, y, self.map[y][x]) for y in range(self.map_h) for x in range(self.map_w)
-            if self.map[y][x] in ANIMATED_TILES]
-        self.shore = [] if self.pack_tiles else tileset.shore_edges(self.map, WATER)
+        self.ground = tilemap.render_ground(self.map)
         self.player.place(*spot)
         self.player.facing = facing
         self.trade = None
@@ -458,37 +443,18 @@ class LobbyScene(Scene):
                 self.bump_cd = BUMP_COOLDOWN
 
     # ------------------------------------------------------------ desenho
-    def render_ground(self):
-        """Chão do mapa inteiro, desenhado uma vez só (os objetos são desenhados à parte)."""
-        if self.pack_tiles:
-            return tilemap.render_ground(self.map)
-        ground = pygame.Surface((self.map_w * TILE, self.map_h * TILE))
-        for ty in range(self.map_h):
-            for tx in range(self.map_w):
-                tile = self.map[ty][tx]
-                kind = TILE_ART.get(tile, "grass") if tile not in ANIMATED_TILES else "grass"
-                options = self.tiles[kind]
-                ground.blit(options[tileset.variant(tx, ty) % len(options)], (tx * TILE, ty * TILE))
-        tileset.draw_path_edges(ground, self.map)
-        return art.optimize(ground)
-
     def object_image(self, name, label=None):
-        """Desenho de um objeto do catálogo: construção por código, recorte do pacote ou arte alternativa.
+        """Desenho de um objeto do catálogo: construção por código ou recorte do pacote.
         Se tiver `label`, a construção ganha a placa com o nome."""
         d = OBJECTS[name]
         if label:
             label = label.format(name=self.ch.name.upper())
         if name in BUILDERS:
             return art.optimize(BUILDERS[name](label))
-        if d.tileset and self.pack_tiles:
-            img = tilemap.object_image(name)
-            return buildings.add_plaque(img, label, d.door[0] if d.door else None) if label else img
-        make = FALLBACK_ART.get(name)
-        if make is None:
-            return None                     # enfeite sem desenho alternativo: fica invisível (mas sólido)
-        img = art.optimize(make())
-        size = (d.w * TILE, d.h * TILE)
-        return img if img.get_size() == size else pygame.transform.scale(img, size)
+        if not d.tileset:
+            return None                     # objeto sem desenho: fica invisível (mas sólido)
+        img = tilemap.object_image(name)
+        return buildings.add_plaque(img, label, d.door[0] if d.door else None) if label else img
 
     def build_figures(self):
         """Tudo que fica "em pé" no mapa: (imagem, x, y em pixels, chave de profundidade).
@@ -501,8 +467,6 @@ class LobbyScene(Scene):
             img = self.object_image(obj.name, obj.label)
             if img is not None:
                 figures.append((img, obj.x * TILE, obj.y * TILE, (obj.y + OBJECTS[obj.name].h) * TILE))
-        if not self.pack_tiles:
-            return figures                  # sem pacote, árvores, pedras e placas já estão no chão
         for y, row in enumerate(self.map):
             for x, ch in enumerate(row):
                 foot = (y + 1) * TILE
@@ -514,19 +478,9 @@ class LobbyScene(Scene):
                     figures.append((tilemap.tile(*tilemap.SIGN_TILE), x * TILE, y * TILE - TILE, foot))
         return figures
 
-    def animated_image(self, tile):
-        if tile == WATER:
-            return self.tiles["water"][int(self.time * 3) % 4]
-        return self.tiles["flower"][int(self.time * 1.5) % 2]
-
     def draw(self, surf):
         cam = self.camera()
         surf.blit(self.ground, (0, 0), pygame.Rect(cam, (GAME_W, GAME_H)))
-        view = pygame.Rect(cam[0] - TILE, cam[1] - TILE, GAME_W + TILE, GAME_H + TILE)
-        for tx, ty, tile in self.animated:
-            if view.collidepoint(tx * TILE, ty * TILE):
-                surf.blit(self.animated_image(tile), (tx * TILE - cam[0], ty * TILE - cam[1]))
-        tileset.draw_foam(surf, self.shore, cam, self.time)
         self.draw_standing(surf, cam)
 
         self.draw_banner(surf)
@@ -544,7 +498,7 @@ class LobbyScene(Scene):
         layer = [(foot, 0, img, x, y) for img, x, y, foot in self.figures if view.collidepoint(x, y)]
         # 1: no mesmo pé, o personagem fica na frente do objeto
         layer.extend((actor.py + TILE, 1, actor, 0, 0) for actor in (*self.npcs, self.player))
-        shadow = tileset.actor_shadow()
+        shadow = tilemap.actor_shadow()
         for _, kind, thing, x, y in sorted(layer, key=lambda item: (item[0], item[1])):
             if kind == 0:
                 surf.blit(thing, (x - cam[0], y - cam[1]))
@@ -557,11 +511,8 @@ class LobbyScene(Scene):
     def draw_grass_front(self, surf, actor, cam):
         """Metade de baixo do mato alto por cima do personagem: parece que ele está dentro do mato."""
         pos = (actor.tx * TILE - cam[0], actor.ty * TILE - cam[1])
-        if self.pack_tiles:
-            grass = tilemap.tile(*tilemap.TALL_GRASS_TILE)
-            surf.blit(grass, (pos[0], pos[1] + TILE // 2), pygame.Rect(0, TILE // 2, TILE, TILE // 2))
-        else:
-            surf.blit(self.tiles["tall_front"][0], pos)
+        grass = tilemap.tile(*tilemap.TALL_GRASS_TILE)
+        surf.blit(grass, (pos[0], pos[1] + TILE // 2), pygame.Rect(0, TILE // 2, TILE, TILE // 2))
 
     def draw_banner(self, surf):
         t = self.banner_t

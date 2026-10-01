@@ -5,7 +5,7 @@ paleta e '.' é transparente. Assim dá para editar a arte direto aqui no códig
 """
 import pygame
 
-from game.engine.ui import dither_gradient, draw_outlined, draw_text, text_width
+from game.engine.ui import dither_gradient, draw_text, text_width
 
 K = (40, 40, 48)   # contorno
 
@@ -64,75 +64,6 @@ def slime_sprite(color):
 
 
 # ================================================================ prédios
-def house(roof, roof_dark):
-    """Casa 5x4 tiles (80x64). A porta fica na coluna 2, última linha."""
-    w, h = 80, 64
-    s = pygame.Surface((w, h), pygame.SRCALPHA)
-    pygame.draw.rect(s, K, (4, 26, 72, 38))
-    pygame.draw.rect(s, (240, 224, 184), (5, 27, 70, 36))
-    pygame.draw.rect(s, (208, 184, 144), (5, 58, 70, 5))
-    pygame.draw.rect(s, K, (58, 0, 8, 10))
-    pygame.draw.rect(s, (176, 176, 184), (59, 1, 6, 8))
-    pygame.draw.polygon(s, K, [(0, 30), (10, 2), (70, 2), (79, 30)])
-    pygame.draw.polygon(s, roof, [(2, 29), (11, 3), (69, 3), (77, 29)])
-    for y in range(8, 29, 5):
-        inset = 11 - (y - 3) * 9 // 26
-        pygame.draw.line(s, roof_dark, (inset + 1, y), (w - inset - 3, y))
-    for wx in (10, 56):
-        pygame.draw.rect(s, K, (wx, 36, 14, 12))
-        pygame.draw.rect(s, (152, 208, 248), (wx + 1, 37, 12, 10))
-        pygame.draw.line(s, K, (wx + 7, 37), (wx + 7, 46))
-        pygame.draw.line(s, K, (wx + 1, 41), (wx + 12, 41))
-    pygame.draw.rect(s, K, (32, 40, 16, 24))
-    pygame.draw.rect(s, (152, 96, 56), (33, 41, 14, 23))
-    pygame.draw.rect(s, (248, 208, 64), (43, 52, 2, 2))
-    return s
-
-
-def arena():
-    """Arena 7x5 tiles (112x80). A porta fica na coluna 3, última linha."""
-    w, h = 112, 80
-    s = pygame.Surface((w, h), pygame.SRCALPHA)
-    pygame.draw.rect(s, K, (2, 20, 108, 60))
-    pygame.draw.rect(s, (216, 216, 224), (3, 21, 106, 58))
-    pygame.draw.rect(s, (184, 184, 200), (3, 70, 106, 9))
-    pygame.draw.rect(s, K, (0, 6, 112, 18))
-    pygame.draw.rect(s, (208, 64, 64), (1, 7, 110, 16))
-    pygame.draw.rect(s, K, (10, 0, 92, 8))
-    pygame.draw.rect(s, (240, 240, 240), (11, 1, 90, 6))
-    draw_outlined(s, "ARENA", (56, 9), (248, 248, 248), K, size=16, align="center")
-    for px in (8, 96):
-        pygame.draw.rect(s, K, (px, 24, 8, 56))
-        pygame.draw.rect(s, (176, 176, 192), (px + 1, 24, 6, 56))
-    for wx in (22, 74):
-        pygame.draw.rect(s, K, (wx, 32, 16, 12))
-        pygame.draw.rect(s, (152, 208, 248), (wx + 1, 33, 14, 10))
-    # emblema de carta acima da porta
-    pygame.draw.rect(s, K, (49, 27, 14, 18), border_radius=2)
-    pygame.draw.rect(s, (208, 64, 64), (50, 28, 12, 16), border_radius=2)
-    pygame.draw.rect(s, (248, 240, 216), (52, 30, 8, 12))
-    pygame.draw.circle(s, (208, 64, 64), (56, 36), 2)
-    pygame.draw.rect(s, K, (46, 50, 20, 30))
-    pygame.draw.rect(s, (88, 96, 136), (47, 51, 18, 29))
-    pygame.draw.line(s, K, (56, 51), (56, 79))
-    return s
-
-
-def shop():
-    """Loja de cartas 5x4 tiles (80x64). A porta fica na coluna 2, última linha."""
-    s = house((64, 176, 104), (40, 128, 72)).copy()
-    # toldo listrado
-    for i in range(9):
-        color = (232, 72, 64) if i % 2 == 0 else (248, 248, 240)
-        pygame.draw.rect(s, color, (5 + i * 8, 27, 8, 6))
-    pygame.draw.line(s, K, (5, 33), (74, 33))
-    # placa com o nome
-    pygame.draw.rect(s, K, (19, 8, 42, 15), border_radius=2)
-    pygame.draw.rect(s, (248, 216, 96), (20, 9, 40, 13), border_radius=2)
-    draw_text(s, "LOJA", (40, 10), color=K, size=16, shadow=None, align="center")
-    return s
-
-
 def coliseum():
     """Coliseu 7x4 tiles (112x64). A porta fica na coluna 3, última linha."""
     w, h = 112, 64

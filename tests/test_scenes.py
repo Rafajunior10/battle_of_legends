@@ -272,17 +272,15 @@ def test_criacao_mostra_o_valor_certo_em_cada_linha(game):
     assert scene.value_of(scene.done_row) == ""
 
 
-def test_mapas_funcionam_sem_o_pacote_de_arte(game, tmp_path, monkeypatch):
-    """Sem assets/ninja_adventure o jogo cai na arte desenhada por código, sem quebrar."""
+def test_sem_o_pacote_de_arte_o_mapa_avisa_o_que_falta(game, tmp_path, monkeypatch):
+    """O pacote Ninja Adventure vem com o projeto; se sumir, o lobby explica o problema (o título ainda abre)."""
     from game.graphics import assets
     monkeypatch.setattr(assets, "ASSETS_DIR", str(tmp_path))
     assets.reset()
     try:
-        scene = LobbyScene(game)
-        assert not scene.pack_tiles
-        for map_id in MAPS:
-            scene.load_map(map_id, (2, 2), "down")
-            scene.draw(game.screen)
+        with pytest.raises(FileNotFoundError, match="ninja_adventure"):
+            LobbyScene(game)
+        TitleScene(game).draw(game.screen)
     finally:
         assets.reset()
 

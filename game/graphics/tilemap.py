@@ -7,7 +7,7 @@ Duas camadas:
   * OBJETOS (casas, árvores, enfeites): figuras de vários tiles, desenhadas junto com os personagens,
     em ordem de altura na tela. Assim, quem passa atrás de uma árvore fica coberto pela copa.
 
-Sem o pacote, nada daqui é usado: o mapa cai na arte desenhada por código (tileset.py).
+O pacote vem junto com o projeto: sem ele o mapa não abre (o lobby avisa o que falta).
 """
 from __future__ import annotations
 
@@ -164,3 +164,15 @@ def render_ground(grid) -> pygame.Surface:
             for layer in ground_tile(grid, x, y):
                 ground.blit(layer, (x * TILE, y * TILE))
     return ground.convert() if pygame.display.get_surface() else ground
+
+
+ACTOR_SHADOW = (24, 40, 32, 80)
+
+
+def actor_shadow() -> pygame.Surface:
+    """Sombra oval embaixo dos personagens."""
+    if "actor_shadow" not in _tiles:
+        s = pygame.Surface((14, 5), pygame.SRCALPHA)
+        pygame.draw.ellipse(s, ACTOR_SHADOW, s.get_rect())
+        _tiles["actor_shadow"] = s.convert_alpha() if pygame.display.get_surface() else s
+    return _tiles["actor_shadow"]

@@ -63,8 +63,9 @@ game-architecture, game-ai, game-ui-pygame, game-testing, game-design, game-debu
 - **Construções** da vila são modernas e desenhadas por código (`game/graphics/buildings.py`); toda construção com
   porta tem placa com o nome (`Placed(..., label="CASA DO RAFA")`).
 - **Arte**: telas pedem desenhos sempre por `game/graphics/sprites.py` (nunca `assets`/`pixelart` direto para
-  personagens e monstros). Sem `assets/ninja_adventure/` tudo cai na arte por código — os testes precisam
-  passar nos dois casos.
+  personagens e monstros). O pacote `assets/ninja_adventure/` (CC0) vem no repositório e é OBRIGATÓRIO
+  para os mapas (a arte antiga do mapa feita por código foi removida a pedido do usuário); sem ele o lobby
+  levanta um erro explicando o que falta. Monstros ainda caem na gosma de `pixelart.py` sem o pacote.
 - Save (`save.json`) precisa continuar carregando saves antigos: migre em `Character.load()/sanitize()`.
 
 ## Comandos

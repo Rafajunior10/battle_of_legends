@@ -9,9 +9,10 @@ from game.engine import sfx
 from game.engine.settings import GAME_H, GAME_W
 from game.engine.ui import Menu, draw_outlined, draw_text, vertical_gradient
 from game.graphics import pixelart as art
-from game.graphics import tileset
+from game.graphics import tilemap
 from game.scenes.base import Scene
 
+GRASS_GREEN = (88, 168, 72)   # faixa de grama se o pacote de arte faltar
 
 class TitleScene(Scene):
     def __init__(self, game):
@@ -23,10 +24,13 @@ class TitleScene(Scene):
             self.menu.index = 1
         self.time = 0.0
         self.bg = vertical_gradient((GAME_W, GAME_H), (40, 56, 120), (136, 184, 240))
-        grass = tileset.tiles()["grass"][0]
-        for x in range(0, GAME_W, 16):
-            for y in (GAME_H - 32, GAME_H - 16):
-                self.bg.blit(grass, (x, y))
+        if tilemap.available():
+            grass = tilemap.tile(*tilemap.GRASS_TILES[0])
+            for x in range(0, GAME_W, 16):
+                for y in (GAME_H - 32, GAME_H - 16):
+                    self.bg.blit(grass, (x, y))
+        else:
+            self.bg.fill(GRASS_GREEN, (0, GAME_H - 32, GAME_W, 32))
         self.cards = [
             (art.scale(art.render_card(CARDS[cid]), 2), angle)
             for cid, angle in (("bola_de_fogo", 12), ("choque_do_trovao", 0), ("fica_frio_ai", -12))
