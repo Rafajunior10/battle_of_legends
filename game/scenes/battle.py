@@ -129,10 +129,11 @@ class BattleScene(BattleHUD, Scene):
             front_img = sprites.character_frames(spec["look"])[("down", 0)]
             front = art.scale(front_img, sprites.fit_scale(front_img, ENEMY_HEIGHT))
         self.rng = random.Random()
-        me = Combatant(ch.name.upper(), ch.level, ch.max_hp, Deck(ch.deck, self.rng, ch.card_levels),
+        my_rng, foe_rng = self.deck_rngs()
+        me = Combatant(ch.name.upper(), ch.level, ch.max_hp, Deck(ch.deck, my_rng, ch.card_levels),
                        is_player=True)
         foe = Combatant(spec["name"], spec.get("level", 1), spec["hp"],
-                        Deck(spec["deck"], self.rng, spec.get("card_levels")))
+                        Deck(spec["deck"], foe_rng, spec.get("card_levels")))
         self.player = Fighter(me, back, PLAYER_FEET)
         self.enemy = Fighter(foe, front, ENEMY_FEET)
         self.player.icon = hud_icon(sprites.face(ch.appearance))
@@ -164,6 +165,18 @@ class BattleScene(BattleHUD, Scene):
 
     def on_enter(self):
         sfx.music("battle")
+
+    # ------------------------------------------------------------ ganchos (o duelo online troca estes)
+    def deck_rngs(self):
+        """Sorteio do (meu baralho, baralho do oponente)."""
+        return self.rng, self.rng
+
+    def first(self):
+        """Quem joga primeiro."""
+        return self.player
+
+    def sent(self, action):
+        """Você fez uma jogada (no duelo online ela vai para o outro computador)."""
 
     # ------------------------------------------------------------ transformação em legend
     def transformation(self, f):
@@ -224,7 +237,7 @@ class BattleScene(BattleHUD, Scene):
     def deal(self):
         self.player.state.refill_hand()
         self.enemy.state.refill_hand()
-        return self.begin_turn(self.player)
+        return self.begin_turn(self.first())
 
     def begin_turn(self, f):
         events = start_turn(f.state)
@@ -431,6 +444,7 @@ class BattleScene(BattleHUD, Scene):
 
     # ------------------------------------------------------------ turno do jogador
     def end_player_turn(self):
+        self.sent({"end": True})
         self.state = "enemy"
         self.run(Call(lambda: self.finish_turn(self.player)))
 
@@ -483,6 +497,7 @@ class BattleScene(BattleHUD, Scene):
             sfx.play("error")
             self.run(Msg("Energia insuficiente para essa carta!", auto=0.8))
             return
+        self.sent({"card": self.cursor})
         self.state = "busy"
         self.run(*self.play_card(self.player, self.enemy, card, self.card_pos(self.cursor)), Call(self.to_choose))
 
@@ -526,6 +541,7 @@ class BattleScene(BattleHUD, Scene):
                 self.picked.append(self.cursor)
             sfx.play("card")
             if len(self.picked) == abilities.DROGOZ_DISCARD:
+                self.sent({"drogoz": list(self.picked)})
                 events = abilities.drogoz(self.player.state, [hand[i] for i in self.picked])
                 self.state, self.picked = "busy", []
                 steps = [FX("flame", self.player.center)]
@@ -545,6 +561,7 @@ class BattleScene(BattleHUD, Scene):
                 sfx.play("error")
                 self.run(Msg("O Mimo só joga de graça cartas de VENENO ou NINJA.", auto=0.8))
                 return
+            self.sent({"mimo": None if chosen is None else self.option})
             self.state = "busy"
             self.run(*self.mimo_steps(self.player, self.enemy, chosen), Call(self.to_choose))
 

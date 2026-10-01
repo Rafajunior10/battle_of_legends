@@ -81,6 +81,15 @@ class Game:
         sfx.play("encounter")
         self.transition_to(lambda: BattleScene(self, spec, on_end), style="battle")
 
+    def start_duel(self, spec, seed, side, on_end):
+        """Duelo online contra outro jogador (scenes/duel.py)."""
+        from game.scenes.duel import DuelScene
+        if self.net:
+            self.net.send({"t": "status", "battle": True})
+        sfx.music(None)
+        sfx.play("encounter")
+        self.transition_to(lambda: DuelScene(self, spec, on_end, seed, side), style="battle")
+
     def draw_fps(self):
         label = f"{self.clock.get_fps():.0f} FPS" + (" vsync" if self.display.vsync else "")
         draw_outlined(self.screen, label, (self.screen.get_width() - 3, 2), (248, 248, 120), size=12, align="right")

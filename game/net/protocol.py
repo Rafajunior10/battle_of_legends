@@ -7,6 +7,10 @@ Mensagens do jogador para o servidor:
     move    {map, x, y, facing, run}             comecei um passo para (x, y) / virei / troquei de mapa
     emote   {text}                               balão de fala
     status  {battle}                             entrei ou saí de uma batalha
+    challenge {to, fighter}                      desafiar o jogador `to` para um duelo (fighter: core/duel.py)
+    answer    {to, yes, fighter}                 aceitar (ou não) o desafio de `to`
+    duel      {action}                           uma jogada no duelo (vai só para o oponente)
+    duel_over                                    o duelo acabou
 Mensagens do servidor para o jogador:
     account {character}         login ok: o personagem salvo (ou null, conta nova)
     denied  {text}              login/cadastro recusado (pode tentar de novo)
@@ -14,6 +18,9 @@ Mensagens do servidor para o jogador:
     join    {player}            alguém entrou        leave {id}   alguém saiu
     move / emote / status       o mesmo de cima, com o "id" de quem fez
     error   {text}              conexão recusada (versão diferente, servidor cheio...)
+    challenge {from, name}      alguém te desafiou    challenge_denied {text}   o desafio não rolou
+    duel_start {seed, side, foe}  o duelo começou (semente dos baralhos, seu lado, ficha do oponente)
+    duel {action}               jogada do oponente    duel_end {reason}   o oponente saiu (vitória por W.O.)
 Só mensagens pequenas viajam: cada passo vira uma mensagem, e cada computador anima o passo sozinho.
 """
 from __future__ import annotations
@@ -23,7 +30,7 @@ import json
 import socket
 
 PORT = 50550
-VERSION = 2                  # muda quando o formato das mensagens mudar (versões diferentes não se conectam)
+VERSION = 3                  # muda quando o formato das mensagens mudar (versões diferentes não se conectam)
 MAX_LINE = 64 * 1024         # mensagem maior que isso é lixo: a conexão é fechada
 MAX_PLAYERS = 8
 EMOTES = ["Oi!", "Bora duelar?", "Me segue!", "Valeu!", "Kkkkk", "Tchau!"]

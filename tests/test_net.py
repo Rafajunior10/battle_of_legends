@@ -185,3 +185,56 @@ def test_quem_hospeda_entra_no_proprio_mundo():
     host.close()
     assert wait_for(friend, "disconnected")                   # o mundo fechou: o amigo fica sabendo
     friend.close()
+
+
+# ------------------------------------------------------------ duelos (PvP)
+def test_desafio_aceito_comeca_o_duelo_nos_dois(server):
+    ana, _ = join(server.port, "ANA")
+    beto, _ = join(server.port, "BETO")
+    ana.send({"t": "challenge", "to": beto.id, "fighter": {"name": "ANA"}})
+    challenge = wait_for(beto, "challenge")
+    assert (challenge["from"], challenge["name"]) == (ana.id, "ANA")
+    beto.send({"t": "answer", "to": ana.id, "yes": True, "fighter": {"name": "BETO"}})
+    start_a, start_b = wait_for(ana, "duel_start"), wait_for(beto, "duel_start")
+    assert start_a["seed"] == start_b["seed"]                 # mesma semente: mesmos embaralhamentos
+    assert (start_a["side"], start_b["side"]) == (0, 1)       # quem desafiou começa
+    assert (start_a["foe"]["name"], start_b["foe"]["name"]) == ("BETO", "ANA")
+    ana.send({"t": "duel", "action": {"card": 2}})
+    assert wait_for(beto, "duel")["action"] == {"card": 2}    # a jogada vai só para o oponente
+    beto.close()
+    assert wait_for(ana, "duel_end")["reason"] == "left"      # saiu no meio: vitória por W.O.
+    ana.close()
+
+
+def test_desafio_recusado_ou_impossivel(server):
+    ana, _ = join(server.port, "ANA")
+    beto, _ = join(server.port, "BETO")
+    ana.send({"t": "challenge", "to": beto.id, "fighter": {}})
+    wait_for(beto, "challenge")
+    beto.send({"t": "answer", "to": ana.id, "yes": False})
+    assert "recusou" in wait_for(ana, "challenge_denied")["text"]
+    beto.send({"t": "status", "battle": True})
+    wait_for(ana, "status")
+    ana.send({"t": "challenge", "to": beto.id, "fighter": {}})
+    assert "batalha" in wait_for(ana, "challenge_denied")["text"]
+    ana.send({"t": "challenge", "to": 999, "fighter": {}})
+    assert "não está mais" in wait_for(ana, "challenge_denied")["text"]
+    ana.close()
+    beto.close()
+
+
+def test_duelo_acabou_libera_os_dois(server):
+    ana, _ = join(server.port, "ANA")
+    beto, _ = join(server.port, "BETO")
+    ana.send({"t": "challenge", "to": beto.id, "fighter": {}})
+    wait_for(beto, "challenge")
+    beto.send({"t": "answer", "to": ana.id, "yes": True, "fighter": {}})
+    wait_for(ana, "duel_start")
+    ana.send({"t": "duel_over"})
+    beto.send({"t": "duel_over"})
+    time.sleep(0.1)
+    assert server.duels == {}
+    beto.close()
+    time.sleep(0.1)
+    assert not [m for m in ana.poll() if m["t"] == "duel_end"]   # já tinha acabado: sem W.O.
+    ana.close()

@@ -3,13 +3,15 @@
 Cada conexão passa por 3 etapas (uma `Session` guarda em qual está):
     1. login / register   confere a conta no banco (database.py) e devolve o personagem salvo (ou None)
     2. hello              entra no mundo: os outros veem você chegar
-    3. no mundo           move / emote / status são repassados aos outros; save grava o personagem no banco
+    3. no mundo           move / emote / status são repassados aos outros; save grava o personagem no banco;
+                          challenge / answer / duel / duel_over cuidam dos duelos entre jogadores (PvP)
 O servidor guarda os personagens e a posição de cada um. As regras do jogo (batalhas, loja) rodam no
 computador de cada jogador, que manda o personagem atualizado com "save".
 """
 from __future__ import annotations
 
 import contextlib
+import random
 import socket
 import threading
 from dataclasses import dataclass
@@ -18,6 +20,7 @@ from game.net.database import AccountError, Database
 from game.net.protocol import MAX_PLAYERS, VERSION, LineReader, encode
 
 STATE_KEYS = ("name", "look", "map", "x", "y", "facing", "battle")   # o que o servidor guarda de cada um
+DUEL_MESSAGES = {"challenge": "_challenge", "answer": "_answer", "duel": "_duel_action", "duel_over": "_duel_over"}
 WRONG_VERSION = "Versão do jogo diferente: os dois precisam da mesma versão (baixe a última)."
 
 
@@ -37,6 +40,8 @@ class WorldServer:
         self.players: dict[int, dict] = {}       # id no mundo -> estado (posição, aparência...)
         self.conns: dict[int, socket.socket] = {}
         self.accounts_online: set[int] = set()
+        self.challenges: dict[int, tuple[int, dict]] = {}   # quem desafiou -> (desafiado, ficha de duelo)
+        self.duels: dict[int, int] = {}                      # jogador -> oponente (os dois lados)
         self.lock = threading.Lock()
         self.next_id = 1
         self.sock: socket.socket | None = None
@@ -65,6 +70,8 @@ class WorldServer:
             self.conns.clear()
             self.players.clear()
             self.accounts_online.clear()
+            self.challenges.clear()
+            self.duels.clear()
         self.db.close()
 
     # ------------------------------------------------------------ conexões
@@ -104,6 +111,8 @@ class WorldServer:
         elif session.player_id is None:
             if kind == "hello":
                 return self._hello(conn, session, message)
+        elif kind in DUEL_MESSAGES:
+            getattr(self, DUEL_MESSAGES[kind])(session.player_id, message)
         else:
             self._handle(session.player_id, message)
         return True
@@ -181,12 +190,84 @@ class WorldServer:
                 return                                    # mensagem desconhecida: ignora
         self._broadcast(out, exclude=player_id)
 
+    # ------------------------------------------------------------ duelos (PvP)
+    def _challenge(self, player_id: int, message: dict) -> None:
+        """Desafio: guarda a ficha de quem desafiou e pergunta ao desafiado."""
+        target = message.get("to")
+        with self.lock:
+            me, other = self.players.get(player_id), self.players.get(target)
+            refusal = self._duel_refusal(player_id, target, other)
+            if refusal is None:
+                self.challenges[player_id] = (target, message.get("fighter") or {})
+        if refusal is not None:
+            self._send_to(player_id, {"t": "challenge_denied", "text": refusal})
+            return
+        self._send_to(target, {"t": "challenge", "from": player_id, "name": me["name"]})
+
+    def _duel_refusal(self, player_id: int, target: int, other: dict | None) -> str | None:
+        """Por que não dá para desafiar agora (None = pode). Chamar com o lock."""
+        if other is None or target == player_id:
+            return "Esse jogador não está mais no mundo."
+        if player_id in self.duels:
+            return "Você já está num duelo."
+        if other["battle"] or target in self.duels:
+            return f"{other['name']} está numa batalha agora. Tente daqui a pouco."
+        return None
+
+    def _answer(self, player_id: int, message: dict) -> None:
+        """Resposta do desafiado. Aceitou: o servidor sorteia a semente e começa o duelo nos dois."""
+        challenger = message.get("to")
+        with self.lock:
+            pending = self.challenges.get(challenger)
+            if pending is None or pending[0] != player_id:
+                return                                    # o desafio já foi cancelado
+            del self.challenges[challenger]
+            me = self.players.get(player_id)
+            ok = bool(message.get("yes")) and self._duel_refusal(challenger, player_id, me) is None
+            if ok:
+                self.duels[challenger], self.duels[player_id] = player_id, challenger
+        if not ok:
+            name = me["name"] if me else "O jogador"
+            self._send_to(challenger, {"t": "challenge_denied", "text": f"{name} recusou o duelo."})
+            return
+        seed = random.getrandbits(31)
+        self._send_to(challenger, {"t": "duel_start", "seed": seed, "side": 0, "foe": message.get("fighter") or {}})
+        self._send_to(player_id, {"t": "duel_start", "seed": seed, "side": 1, "foe": pending[1]})
+
+    def _duel_action(self, player_id: int, message: dict) -> None:
+        """Uma jogada: vai só para o oponente."""
+        with self.lock:
+            foe = self.duels.get(player_id)
+        if foe is not None:
+            self._send_to(foe, {"t": "duel", "action": message.get("action")})
+
+    def _duel_over(self, player_id: int, message: dict) -> None:
+        with self.lock:
+            foe = self.duels.pop(player_id, None)
+            if foe is not None:
+                self.duels.pop(foe, None)
+
+    def _leave_duels(self, player_id: int) -> None:
+        """Quem sai do mundo abandona o duelo (o oponente vence) e os desafios pendentes."""
+        with self.lock:
+            foe = self.duels.pop(player_id, None)
+            if foe is not None:
+                self.duels.pop(foe, None)
+            self.challenges.pop(player_id, None)
+            for challenger, (target, _) in list(self.challenges.items()):
+                if target == player_id:
+                    del self.challenges[challenger]
+        if foe is not None:
+            self._send_to(foe, {"t": "duel_end", "reason": "left"})
+
     def _disconnect(self, session: Session) -> None:
         with self.lock:
             if session.account_id is not None:
                 self.accounts_online.discard(session.account_id)
             if session.player_id is None:
                 return
+        self._leave_duels(session.player_id)
+        with self.lock:
             self.players.pop(session.player_id, None)
             self.conns.pop(session.player_id, None)
         self._broadcast({"t": "leave", "id": session.player_id})
@@ -195,6 +276,12 @@ class WorldServer:
     def _send(self, conn: socket.socket, message: dict) -> None:
         with contextlib.suppress(OSError):
             conn.sendall(encode(message))
+
+    def _send_to(self, player_id: int, message: dict) -> None:
+        with self.lock:
+            conn = self.conns.get(player_id)
+        if conn is not None:
+            self._send(conn, message)
 
     def _broadcast(self, message: dict, exclude: int | None = None) -> None:
         with self.lock:

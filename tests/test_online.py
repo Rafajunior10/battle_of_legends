@@ -79,6 +79,19 @@ def open_world(game, monkeypatch, tmp_path):
     return scene
 
 
+def pick(scene, index):
+    """Avança o texto do Prompt até as opções aparecerem e escolhe a de número `index`."""
+    for _ in range(300):
+        if scene.prompt.choosing:
+            break
+        press(scene, pygame.K_z)
+        scene.update(1 / 30)
+    assert scene.prompt.choosing, "as opções não apareceram"
+    for _ in range(index):
+        press(scene, pygame.K_DOWN)
+    press(scene, pygame.K_z)
+
+
 def host_world(game, monkeypatch, tmp_path):
     """Hospeda, cria a conta, importa o save deste PC e entra no mundo."""
     scene = open_world(game, monkeypatch, tmp_path)
@@ -87,6 +100,8 @@ def host_world(game, monkeypatch, tmp_path):
     answer_prompt(scene, yes=True)                            # importar o personagem salvo neste PC
     lobby = game.lobby
     assert isinstance(lobby, LobbyScene) and lobby.net is game.net
+    game.transition = None                                    # pula a animação de troca de tela
+    game.change_scene(lobby)
     return lobby
 
 
@@ -118,14 +133,9 @@ def test_meus_passos_chegam_no_amigo(game, monkeypatch, tmp_path):
     lobby.send_position()
     move = wait_for(friend, "move")
     assert (move["map"], move["x"], move["y"], move["facing"]) == ("vila", lobby.player.tx, lobby.player.ty, "up")
-    lobby.talk_to_player(type("R", (), {"name": "BETO"})())    # fala rápida: escolhe a primeira
-    lobby.prompt.handle(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_z))
-    for _ in range(300):                                       # avança o texto até a escolha aparecer
-        if lobby.prompt.choosing:
-            break
-        lobby.prompt.handle(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_z))
-        lobby.update(1 / 30)
-    lobby.prompt.handle(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_z))
+    lobby.talk_to_player(type("R", (), {"name": "BETO"})())
+    pick(lobby, 1)                                             # FALAR
+    pick(lobby, 0)                                             # a primeira fala rápida
     assert wait_for(friend, "emote")["text"] == "Oi!"
     game.start_battle({"name": "X"}, lambda won, spec: lobby)  # entrar em batalha avisa os outros
     assert wait_for(friend, "status")["battle"] is True
@@ -193,3 +203,52 @@ def test_digitar_usuario_e_senha(game, monkeypatch, tmp_path):
     scene.draw(game.screen)                                     # a senha aparece como *****
     press(scene, pygame.K_ESCAPE)
     assert scene.mode == "menu" and scene.client is None
+
+
+def run_game(game, seconds):
+    """Roda o jogo inteiro (cena + transição), como o laço principal."""
+    for _ in range(int(seconds * 30)):
+        game.scene.update(1 / 30)
+        if game.transition:
+            game.transition.update(1 / 30)
+            if game.transition.done:
+                game.transition = None
+        time.sleep(0.002)
+
+
+def test_desafiar_um_jogador_para_um_duelo(game, monkeypatch, tmp_path):
+    from game.core.duel import fighter
+    from game.scenes.duel import DuelScene
+    lobby = host_world(game, monkeypatch, tmp_path)
+    friend, _ = friend_joins(game.net.server.port)
+    run_lobby(lobby)
+    beto = next(iter(lobby.remotes.values()))
+    lobby.talk_to_player(beto)
+    pick(lobby, 0)                                             # DUELAR
+    challenge = wait_for(friend, "challenge")
+    assert challenge["name"] == "ANA" and "Desafio enviado" in lobby.notice
+    friend.send({"t": "answer", "to": challenge["from"], "yes": True,
+                 "fighter": fighter(Character(name="Beto"))})
+    start = wait_for(friend, "duel_start")
+    assert start["side"] == 1 and start["foe"]["name"] == "ANA"
+    run_game(game, 3)
+    duel = game.scene
+    assert isinstance(duel, DuelScene) and duel.side == 0 and duel.enemy.state.name in ("BETO", "DROGOZ")
+    friend.close()                                             # o amigo saiu no meio: vitória por W.O.
+    for _ in range(600):
+        if game.scene is not duel:
+            break
+        if duel.dialog.active:
+            duel.dialog.handle(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_z))
+        run_game(game, 1 / 30)
+    assert game.scene is lobby and game.character.wins == 1
+
+
+def test_recusar_o_duelo_avisa_quem_desafiou(game, monkeypatch, tmp_path):
+    lobby = host_world(game, monkeypatch, tmp_path)
+    friend, _ = friend_joins(game.net.server.port)
+    run_lobby(lobby)
+    friend.send({"t": "challenge", "to": game.net.id, "fighter": {}})
+    run_lobby(lobby)
+    pick(lobby, 1)                                             # NÃO
+    assert "recusou" in wait_for(friend, "challenge_denied")["text"]

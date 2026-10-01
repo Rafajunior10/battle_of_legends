@@ -40,7 +40,13 @@ game-architecture, game-ai, game-ui-pygame, game-testing, game-design, game-debu
   leitura + fila `poll()`). Online, `Character.save()` manda para o servidor (`character.remote_save`).
   O lobby manda `move` a cada passo (`send_position`) e anima os outros com `actors.RemotePlayer`. Mudou o
   formato das mensagens? Suba `protocol.VERSION`. Testes de verdade com sockets em `tests/test_net.py` e
-  `tests/test_online.py`. Próximo passo planejado: duelo online entre jogadores (fase 2).
+  `tests/test_online.py`.
+- **PvP** (duelo online): lockstep. O servidor só pareia (`challenge`/`answer` -> `duel_start {seed, side}`) e
+  repassa jogadas (`duel {action}`). Cada PC roda a mesma batalha: `core/duel.deck_rngs` dá um sorteio por
+  baralho a partir da semente; `DuelScene` (subclasse de `BattleScene`) envia as jogadas pelo gancho `sent` e
+  aplica as do oponente em `remote_steps`. Por isso a batalha não pode sortear nada fora dos baralhos, e toda
+  decisão nova do jogador precisa virar `sent({...})` + tratamento em `remote_steps`. `tests/test_duel.py`
+  confere que os dois lados terminam idênticos.
 - **Dados do mundo** (mapa, NPCs, falas) ficam em `game/data/world.py`; `lobby.py` só tem comportamento.
 - **Diálogo com pergunta**: use `ui.Prompt` (`say`, `ask`, `choose`), não recrie DialogBox + Menu na cena.
 - **Cartas vêm da planilha de regras** do usuário; `tests/test_cards.py` (SPREADSHEET) confere os números.

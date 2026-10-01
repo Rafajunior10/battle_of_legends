@@ -4,15 +4,14 @@ entra na loja e no coliseu e passa de um mapa a outro pelas passagens.
 Os dados dos mapas e das falas ficam em game/data/world.py; aqui só o comportamento.
 """
 import random
-from dataclasses import fields
 
 import pygame
 
 from game.core import economy
+from game.core.duel import duel_spec, fighter, look_from
 from game.core.economy import ShopError
 from game.core.tournament import ROUND_TITLES, ROUNDS, TOURNAMENT_PRIZE, XP_MULTIPLIER, Tournament
 from game.data.cards import CARDS
-from game.data.looks import Look
 from game.data.opponents import TRAINERS, random_wild, trainer_spec
 from game.data.props import OBJECTS
 from game.data.world import (
@@ -59,7 +58,6 @@ BUMP_COOLDOWN = 0.35
 BANNER_TIME = 3.0
 MENU_OPTIONS = ["DECK", "FICHA", "SALVAR", "OPÇÕES", "FECHAR", "SAIR"]
 CREAM, WHITE_WALL, SAND = (244, 236, 220), (248, 244, 236), (232, 220, 196)
-LOOK_KEYS = {f.name for f in fields(Look)}     # campos aceitos na aparência que vem pela rede
 NOTICE_TIME = 3.0                              # segundos do aviso "FULANO entrou no mundo!"
 # Construções desenhadas por código (buildings.py): recebem o texto da placa
 
@@ -101,6 +99,7 @@ class LobbyScene(Scene):
         self.remotes = {}                  # id -> RemotePlayer (os outros jogadores)
         self.my_emote, self.my_emote_t = None, 0.0
         self.notice, self.notice_t = "", 0.0      # aviso no topo: "FULANO entrou no mundo!"
+        self.duel_invite = None            # desafio de duelo recebido, esperando a tela ficar livre
         self.load_map(map_id, spot, facing)
         for player in getattr(self.net, "initial_players", []):
             self.add_remote(player)
@@ -446,8 +445,8 @@ class LobbyScene(Scene):
                            "facing": self.player.facing, "run": running})
 
     def add_remote(self, info):
-        look = Look(**{k: v for k, v in (info.get("look") or {}).items() if k in LOOK_KEYS}).fitted()
-        remote = RemotePlayer(info["id"], info.get("name", "???"), sprites.character_frames(look),
+        frames = sprites.character_frames(look_from(info.get("look")))
+        remote = RemotePlayer(info["id"], info.get("name", "???"), frames,
                               info.get("map"), info.get("x", 0), info.get("y", 0), info.get("facing"))
         remote.battle = bool(info.get("battle"))
         self.remotes[remote.id] = remote
@@ -464,6 +463,8 @@ class LobbyScene(Scene):
                 return
         for remote in self.remotes.values():
             remote.tick(dt)
+        if self.duel_invite and not self.paused:
+            self.ask_challenge(self.duel_invite)
 
     def on_net_message(self, message):
         kind = message["t"]
@@ -481,6 +482,8 @@ class LobbyScene(Scene):
             remote.say(message.get("text", ""))
         elif kind == "status" and remote:
             remote.battle = bool(message.get("battle"))
+        elif kind in ("challenge", "challenge_denied", "duel_start"):
+            self.on_duel_message(message)
         elif kind == "disconnected":
             self.remotes.clear()
             self.game.leave_online()
@@ -492,12 +495,62 @@ class LobbyScene(Scene):
         self.notice, self.notice_t = text, NOTICE_TIME
 
     def talk_to_player(self, remote):
-        """Interagir com outro jogador: escolher uma fala rápida, que aparece num balão para os dois."""
+        """Interagir com outro jogador: desafiar para um duelo ou mandar uma fala rápida."""
         def chosen(index):
-            if 0 <= index < len(EMOTES):
-                self.my_emote, self.my_emote_t = EMOTES[index], 3.0
-                self.net.send({"t": "emote", "text": EMOTES[index]})
-        self.prompt.choose(f"Dizer o que para {remote.name}?", [*EMOTES, "NADA"], chosen)
+            if index == 0:
+                self.send_challenge(remote)
+            elif index == 1:
+                self.prompt.choose(f"Dizer o que para {remote.name}?", [*EMOTES, "NADA"], self.send_emote)
+        self.prompt.choose(f"O que fazer com {remote.name}?", ["DUELAR", "FALAR", "NADA"], chosen)
+
+    def send_emote(self, index):
+        """Fala rápida: aparece num balão em cima de você, para os dois."""
+        if 0 <= index < len(EMOTES):
+            self.my_emote, self.my_emote_t = EMOTES[index], 3.0
+            self.net.send({"t": "emote", "text": EMOTES[index]})
+
+    # ------------------------------------------------------------ duelo online (PvP)
+    def send_challenge(self, remote):
+        if remote.battle:
+            self.say(f"{remote.name} está numa batalha agora. Tente daqui a pouco.")
+            return
+        self.net.send({"t": "challenge", "to": remote.id, "fighter": fighter(self.ch)})
+        self.banner(f"Desafio enviado para {remote.name}! Esperando a resposta...")
+
+    def on_duel_message(self, message):
+        kind = message["t"]
+        if kind == "challenge":
+            self.duel_invite = message                   # pergunta quando a tela estiver livre
+        elif kind == "challenge_denied":
+            self.say(message.get("text", "O duelo não aconteceu."))
+        elif kind == "duel_start":
+            self.duel_invite = None
+            self.prompt = Prompt()                       # fecha qualquer conversa aberta
+            try:
+                spec = duel_spec(message.get("foe") or {}, message.get("side", 0))
+            except (ValueError, TypeError, AttributeError):
+                self.net.send({"t": "duel", "action": {"forfeit": True}})   # ficha estragada: desiste
+                self.net.send({"t": "duel_over"})
+                self.say("Não deu para começar o duelo (o deck do outro jogador veio com problema).")
+                return
+            self.game.start_duel(spec, message.get("seed", 0), message.get("side", 0), self.after_duel)
+
+    def ask_challenge(self, message):
+        self.duel_invite = None
+        challenger = message.get("from")
+
+        def answer(yes):
+            self.net.send({"t": "answer", "to": challenger, "yes": yes, "fighter": fighter(self.ch) if yes else None})
+            if yes:
+                self.banner("Duelo aceito! Preparando...")
+        sfx.play("encounter")
+        self.prompt.ask(f"{message.get('name', '???')} te desafiou para um DUELO! Aceitar?", answer)
+
+    def after_duel(self, won, spec):
+        """Chamada pelo duelo no meio da transição. Devolve esta cena (perder um duelo não manda para casa)."""
+        self.steps_since_battle = 0
+        self.showing_profile = False
+        return self
 
     def remotes_here(self):
         """Os outros jogadores que estão neste mesmo mapa."""

@@ -46,7 +46,17 @@ num banco SQLite (`world.db`) no PC de quem hospeda; a senha é guardada só com
 3. O amigo: título > **JOGAR** > **ENTRAR** e digita o endereço de quem hospeda.
 4. Login: digite usuário e senha e vá em **ENTRAR**; na primeira vez, **CRIAR CONTA**. Conta nova pode
    importar o personagem salvo no PC (`save.json`) ou criar um novo.
-5. Para falar com o outro, fique de frente para ele e aperte o botão A.
+5. Fique de frente para o outro jogador e aperte o botão A: **DUELAR** ou **FALAR** (falas rápidas).
+
+### Duelo entre jogadores (PvP)
+
+Escolha **DUELAR**: o outro recebe o convite e aceita ou recusa. Quem desafiou começa jogando. Cada um usa o
+próprio deck e o próprio legend. O duelo conta vitória/derrota na ficha, mas não dá BETS nem XP. Se alguém sai
+do jogo no meio do duelo, o outro vence por W.O.
+
+Por dentro: o servidor sorteia uma "semente" e os dois PCs embaralham os baralhos com ela, então os dois veem
+as mesmas cartas. Pela rede só passam as jogadas (qual carta, fim do turno, habilidade), e cada PC aplica a
+jogada do outro nas mesmas regras (`game/core/duel.py` e `game/scenes/duel.py`).
 
 Os dois precisam estar com a **mesma versão** do jogo (baixem a última do GitHub).
 
@@ -162,6 +172,7 @@ game/
     battle_fx.py             animações: transformação, faixa do legend, golpes, partículas
     lobby.py, actors.py      mundo andável e personagens em grade
     online.py                tela JOGAR: hospedar ou entrar no mundo, login e criação de conta
+    duel.py                  duelo online contra outro jogador (a batalha, com o oponente vindo da rede)
     shop.py, deckedit.py, create.py, profile.py, options.py, title.py, common.py
 tests/                       pytest
 ```
