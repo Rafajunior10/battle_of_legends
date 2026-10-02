@@ -7,6 +7,7 @@ Mensagens do jogador para o servidor:
     move    {map, x, y, facing, run, sit}        comecei um passo para (x, y) / virei / troquei de mapa / sentei
     emote   {text}                               balão de fala
     status  {battle}                             entrei ou saí de uma batalha
+    look    {look}                               troquei de roupa (closet)
     challenge {to, fighter}                      desafiar o jogador `to` para um duelo (fighter: core/duel.py)
     answer    {to, yes, fighter}                 aceitar (ou não) o desafio de `to`
     duel      {action}                           uma jogada no duelo (vai só para o oponente)
@@ -18,7 +19,7 @@ Mensagens do servidor para o jogador:
     denied  {text}              login/cadastro recusado (pode tentar de novo)
     welcome {id, players}       seu número no mundo e quem já está lá
     join    {player}            alguém entrou        leave {id}   alguém saiu
-    move / emote / status       o mesmo de cima, com o "id" de quem fez
+    move / emote / status / look  o mesmo de cima, com o "id" de quem fez
     error   {text}              conexão recusada (versão diferente, servidor cheio...)
     challenge {from, name}      alguém te desafiou    challenge_denied {text}   o desafio não rolou
     duel_start {seed, side, foe}  o duelo começou (semente dos baralhos, seu lado, ficha do oponente)
@@ -32,7 +33,7 @@ import json
 import socket
 
 PORT = 50550
-VERSION = 4                  # muda quando o formato das mensagens mudar (versões diferentes não se conectam)
+VERSION = 5                  # muda quando o formato das mensagens mudar (versões diferentes não se conectam)
 MAX_LINE = 64 * 1024         # mensagem maior que isso é lixo: a conexão é fechada
 MAX_PLAYERS = 8
 EMOTES = ["Oi!", "Bora duelar?", "Me segue!", "Valeu!", "Kkkkk", "Tchau!"]

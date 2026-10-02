@@ -22,7 +22,7 @@ HAIR_COLORS = {   # as 12 cores de cabelo do Mana Seed (o desenho de reserva usa
     "verde": ((110, 180, 160), (86, 116, 126)), "azul": ((70, 120, 210), (45, 81, 145)),
     "grisalho": ((150, 150, 166), (77, 77, 90)), "branco": ((226, 232, 232), (124, 137, 137)),
 }
-HAIR_STYLES = ["curto", "raspado", "chanel", "longo", "careca"]
+HAIR_STYLES = ["curto", "raspado", "chanel", "longo", "cacheado", "careca"]
 GENDERS = ["Masculino", "Feminino"]
 DEFAULT_HAIR = {"Masculino": "curto", "Feminino": "longo"}
 
@@ -49,7 +49,7 @@ SHOE_COLORS = {   # cor do tênis (a sola é sempre branca)
     "marrom": (150, 96, 56),
 }
 TOPS = {"Masculino": ["camisa", "regata", "manga longa"], "Feminino": ["camisa", "top", "manga longa"]}
-BOTTOMS = {"Masculino": ["calça", "bermuda"], "Feminino": ["saia", "calça", "vestido"]}
+BOTTOMS = {"Masculino": ["calça", "bermuda", "shorts"], "Feminino": ["saia", "calça", "vestido", "shorts"]}
 
 
 @dataclass(frozen=True)

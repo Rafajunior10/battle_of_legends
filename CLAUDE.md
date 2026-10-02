@@ -57,6 +57,14 @@ game-architecture, game-ai, game-ui-pygame, game-testing, game-design, game-debu
   batalha (`BattleScene.take_snacks`/`eat_snacks`; no PvP não vale). Mesa de troca entre jogadores: mensagens
   `swap_*` que o servidor só repassa (`RELAY_MESSAGES`), regras em `economy.can_swap`/`swap_card`, tela
   `scenes/trade_table.py`.
+- **Casa do jogador** (mapas `casa_terreo` e `casa_superior`, porta "home" na vila): `MapDef.private` = cada jogador
+  tem a sua (a rede usa `LobbyScene.map_key` = "casa_terreo@NOME"). A planta é a grade (`#` parede, `_` madeira,
+  `t` azulejo, `c` carpete, `s` escada) e `graphics/house.py` desenha chão e paredes a partir dela (parede com piso
+  embaixo mostra a frente, com a cor do cômodo). Escada = warps no último degrau. Móveis em `house.FURNITURE`;
+  `house.FROM_CHARACTER` desenha a partir do personagem (estante de troféus). Sofá visto de costas usa
+  `ObjectDef.seat_row=0`. Usos da casa: "closet" (`scenes/closet.py`, a CreateScene só com roupas), "bed" (salva),
+  "trophies". NPC REBECA = esposa do jogador (falas em `world.REBECA_LINES`). Trocar de roupa manda `look` pela
+  rede. Cabelo `cacheado` sai do chanel em `wardrobe._curly`; `shorts` = calça cortada em `Mold.thigh`.
 - **Diálogo com pergunta**: use `ui.Prompt` (`say`, `ask`, `choose`), não recrie DialogBox + Menu na cena.
 - **Cartas vêm da planilha de regras** do usuário; `tests/test_cards.py` (SPREADSHEET) confere os números.
   Mudou carta? Atualize os dois. A descrição é gerada pelos campos (`CardDef.text`), não escreva à mão.

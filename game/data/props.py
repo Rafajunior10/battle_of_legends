@@ -15,6 +15,7 @@ class ObjectDef:
     solid: quantas linhas de baixo bloqueiam a passagem (0 = dá para passar por cima/atrás).
     door:  posição da porta dentro da figura (coluna, linha), se houver.
     counter: é balcão (dá para falar com quem está do outro lado).
+    seat_row: em que linha da figura ficam os assentos (None = a de baixo; o sofá visto de costas usa 0).
     tileset vazio = desenho feito por código (pixelart.py), como o Coliseu.
     """
     tileset: str
@@ -25,6 +26,7 @@ class ObjectDef:
     solid: int
     door: tuple[int, int] | None = None
     counter: bool = False
+    seat_row: int | None = None
 
     def footprint(self, x: int, y: int) -> set[tuple[int, int]]:
         """Tiles bloqueados quando a figura é colocada com o canto de cima à esquerda em (x, y)."""
@@ -67,6 +69,33 @@ OBJECTS = {
     "trade_table": ObjectDef("", 0, 0, 3, 2, 2),
     "plant": ObjectDef("", 0, 0, 1, 2, 1),
     "jukebox": ObjectDef("", 0, 0, 1, 2, 1),
+    # ---- móveis da casa (interiors.py)
+    "kitchen_counter": ObjectDef("", 0, 0, 8, 3, 1),
+    "fridge": ObjectDef("", 0, 0, 2, 3, 1),
+    "island": ObjectDef("", 0, 0, 4, 2, 2),
+    "stool": ObjectDef("", 0, 0, 1, 1, 1),
+    "dining_table": ObjectDef("", 0, 0, 4, 2, 2),
+    "dchair_d": ObjectDef("", 0, 0, 1, 2, 1),
+    "dchair_u": ObjectDef("", 0, 0, 1, 1, 1),
+    "dchair_r": ObjectDef("", 0, 0, 1, 2, 1),
+    "dchair_l": ObjectDef("", 0, 0, 1, 2, 1),
+    "sideboard": ObjectDef("", 0, 0, 3, 2, 1),
+    "tv_rack": ObjectDef("", 0, 0, 6, 1, 1),
+    "coffee_table": ObjectDef("", 0, 0, 3, 1, 1),
+    "sofa": ObjectDef("", 0, 0, 5, 2, 2, seat_row=0),
+    "floor_lamp": ObjectDef("", 0, 0, 1, 2, 1),
+    "trophy_shelf": ObjectDef("", 0, 0, 4, 2, 0),
+    "toilet": ObjectDef("", 0, 0, 1, 2, 1),
+    "bath_sink": ObjectDef("", 0, 0, 1, 2, 1),
+    "closet": ObjectDef("", 0, 0, 3, 3, 1),
+    "nightstand": ObjectDef("", 0, 0, 1, 2, 1),
+    "bed_double": ObjectDef("", 0, 0, 3, 3, 2),
+    "bed_single": ObjectDef("", 0, 0, 2, 3, 2),
+    "tv_small": ObjectDef("", 0, 0, 2, 2, 0),
+    "dresser": ObjectDef("", 0, 0, 2, 2, 1),
+    "vanity": ObjectDef("", 0, 0, 2, 2, 1),
+    "shower": ObjectDef("", 0, 0, 2, 3, 2),
+    "bathtub": ObjectDef("", 0, 0, 3, 2, 2),
     # ---- natureza
     "tree": ObjectDef(N, 0, 0, 2, 2, 1),
     "pine": ObjectDef(N, 2, 0, 2, 2, 1),

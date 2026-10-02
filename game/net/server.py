@@ -188,6 +188,9 @@ class WorldServer:
                        "facing": state["facing"], "run": bool(message.get("run")), "sit": state["sit"]}
             elif kind == "emote":
                 out = {"t": "emote", "id": player_id, "text": str(message.get("text", ""))[:40]}
+            elif kind == "look" and isinstance(message.get("look"), dict):
+                state["look"] = message["look"]
+                out = {"t": "look", "id": player_id, "look": state["look"]}
             elif kind == "status":
                 state["battle"] = bool(message.get("battle"))
                 out = {"t": "status", "id": player_id, "battle": state["battle"]}

@@ -1,4 +1,8 @@
-"""Lanchonete da Vila Carta: o que acontece lá dentro. Mixin do LobbyScene (como o BattleHUD da batalha).
+"""Interiores: a Lanchonete da Vila Carta e a sua casa. Mixin do LobbyScene (como o BattleHUD da batalha).
+
+Casa: REBECA (sua esposa) conversa; a cama salva o jogo; a estante mostra os troféus; o closet troca a roupa
+(scenes/closet.py). A TV e os assentos funcionam igual aos da lanchonete.
+
 
 - Atendente LU: vende lanches (regras em core/food.py). O lanche dá PV a mais na próxima batalha.
 - Assentos (cadeiras e puffs): A de frente para um assento senta; qualquer direção levanta.
@@ -12,13 +16,15 @@ from game.core.economy import ShopError
 from game.data.cards import CARDS
 from game.data.food import MENU
 from game.data.props import OBJECTS
-from game.data.world import CAFE, CAFE_SPOT, DIR_VECTORS, GABI_TIPS, TV_SHOWS
+from game.data.world import CAFE, CAFE_SPOT, DIR_VECTORS, GABI_TIPS, REBECA_LINES, TV_SHOWS
 from game.engine import sfx
 from game.engine.settings import TILE
-from game.graphics import interiors
+from game.graphics import house, interiors
 
 TV_SWITCH = 6.0                     # segundos em cada canal
-SEAT_FRONT = {"puff": 7, "chair": 10}   # linhas de baixo do assento desenhadas na frente de quem senta
+TV_SCREENS = {"tv": interiors.TV_SCREEN, "tv_small": house.TV_SMALL_SCREEN}
+# linhas de baixo do assento desenhadas na frente de quem senta (pelo nome do objeto ou pelo começo dele)
+SEAT_FRONT = {"puff": 7, "chair": 10, "stool": 6, "dchair_d": 8, "dchair_u": 11, "dchair_r": 10, "dchair_l": 10}
 LOOK_AHEAD = 6                      # sentado, A "enxerga" até este tanto de tiles à frente (a TV do puff)
 MAX_SWAP_CARDS = 200
 
@@ -30,20 +36,20 @@ class CafeMixin:
         self.seated_from = None
         self.counters = self.map_def.counter_tiles()
         self.seat_fronts = {}
-        self.tv_spot = None
+        self.tvs = []                  # (posição da tela, profundidade, canais) de cada TV do mapa
         for obj in self.map_def.objects:
-            kind = obj.name.split("_")[0]
-            if obj.action and obj.action.startswith("seat:") and kind in SEAT_FRONT:
+            rows = SEAT_FRONT.get(obj.name, SEAT_FRONT.get(obj.name.split("_")[0]))
+            if obj.action and obj.action.startswith("seat:") and rows:
                 img = self.object_image(obj.name)
-                rows = SEAT_FRONT[kind]
                 front = img.subsurface((0, img.get_height() - rows, img.get_width(), rows))
                 tile = (obj.x, obj.y + img.get_height() // TILE - 1)
                 self.seat_fronts[tile] = (front, obj.x * TILE, (tile[1] + 1) * TILE - rows)
-            elif obj.name == "tv":
-                self.tv_spot = (obj.x * TILE + interiors.TV_SCREEN.x, obj.y * TILE + interiors.TV_SCREEN.y)
-                self.tv_foot = (obj.y + OBJECTS[obj.name].h) * TILE       # mesma profundidade da TV
-        if self.tv_spot and not hasattr(self, "tv_frames"):
-            self.tv_frames = interiors.tv_channels()
+            elif obj.name in TV_SCREENS:
+                screen = TV_SCREENS[obj.name]
+                spot = (obj.x * TILE + screen.x, obj.y * TILE + screen.y)
+                foot = (obj.y + OBJECTS[obj.name].h) * TILE                 # mesma profundidade da TV
+                self.tvs.append((spot, foot, interiors.tv_channels(screen.size)))
+        if not hasattr(self, "tv_channel"):
             self.tv_channel = 0
 
     def enter_cafe(self):
@@ -73,7 +79,8 @@ class CafeMixin:
                      for i in range(1, LOOK_AHEAD + 1) for side in (0, -1, 1)]
             target = next((tile for tile in ahead if tile in uses), target)
         if target in uses:
-            {"tv": self.watch_tv, "swap": self.open_swap}[uses[target]]()
+            {"tv": self.watch_tv, "swap": self.open_swap, "closet": self.open_closet, "bed": self.rest,
+             "trophies": self.show_trophies}[uses[target]]()
             return True
         if target in self.map_def.seats and not self.player.sitting:
             self.sit(target)
@@ -128,33 +135,60 @@ class CafeMixin:
         self.say([f"LU: Aqui está: {item.name}. Bom apetite!",
                   f"Delícia! Na próxima batalha você começa com +{item.hp} PV."], face=face)
 
+    # ------------------------------------------------------------ casa
+    def talk_rebeca(self):
+        line = REBECA_LINES[self.rebeca_line % len(REBECA_LINES)]
+        self.rebeca_line += 1
+        self.say(line.format(name=self.ch.name.upper()), face=self.face_of("rebeca"))
+
+    def rest(self):
+        self.ch.save()
+        sfx.play("save")
+        self.say(["Você deitou um pouquinho e descansou.", "Jogo salvo!"])
+
+    def show_trophies(self):
+        wins = self.ch.coliseum_wins
+        lines = [f"ESTANTE: {wins} troféu{'s' if wins != 1 else ''} de campeão do Coliseu." if wins
+                 else "ESTANTE: ainda vazia. Vença o torneio do Coliseu para ganhar o primeiro troféu!"]
+        medals = [name for who, name in (("rafa", "RAFA"), ("lia", "Mestra LIA"), ("zeca", "Grão-Mestre ZECA"))
+                  if who in self.ch.beaten]
+        if medals:
+            lines.append("Medalhas penduradas: " + ", ".join(medals) + ".")
+        self.say(lines)
+
+    def open_closet(self):
+        from game.scenes.closet import ClosetScene
+        sfx.play("confirm")
+        self.game.transition_to(lambda: ClosetScene(self.game, self))
+
     def talk_gabi(self):
         self.say(GABI_TIPS[self.gabi_tip % len(GABI_TIPS)], face=self.face_of("gabi"))
         self.gabi_tip += 1
 
     def watch_tv(self):
         sfx.play("cursor")
-        self.tv_channel = (self.tv_channel + 1) % len(self.tv_frames)
+        self.tv_channel = (self.tv_channel + 1) % len(TV_SHOWS)
         self.tv_time = 0.0
         self.say(TV_SHOWS[self.tv_channel])
 
     def update_tv(self, dt):
-        if not self.tv_spot:
+        if not self.tvs:
             return
         self.tv_time = getattr(self, "tv_time", 0.0) + dt
         if self.tv_time >= TV_SWITCH:
             self.tv_time = 0.0
-            self.tv_channel = (self.tv_channel + 1) % len(self.tv_frames)
+            self.tv_channel = (self.tv_channel + 1) % len(TV_SHOWS)
 
-    def draw_tv(self, surf, cam):
-        """Tela da TV: o canal atual, uma linha de varredura descendo e a bolinha do AO VIVO piscando."""
-        x, y = self.tv_spot[0] - cam[0], self.tv_spot[1] - cam[1]
-        frame = self.tv_frames[self.tv_channel]
+    def draw_tv(self, surf, cam, tv):
+        """Tela de uma TV: o canal atual, uma linha de varredura descendo e a bolinha do AO VIVO piscando."""
+        spot, _, frames = tv
+        x, y = spot[0] - cam[0], spot[1] - cam[1]
+        frame = frames[self.tv_channel]
         surf.blit(frame, (x, y))
         line = y + int(self.time * 18) % frame.get_height()
         surf.fill((150, 170, 200), (x, line, frame.get_width(), 1))
         if self.tv_channel == 0 and int(self.time * 2) % 2:
-            surf.fill((250, 60, 60), (x + 33, y + 2, 3, 3))
+            surf.fill((250, 60, 60), (x + frame.get_width() * 33 // 54, y + 2, 2, 2))
 
     def draw_seat_front(self, surf, actor, cam):
         """Quem está sentado fica "dentro" do assento: a frente dele é desenhada por cima."""

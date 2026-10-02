@@ -251,3 +251,15 @@ def test_mesa_de_troca_so_repassa_para_o_outro(server):
     assert wait_for(ana, "swap_cards")["cards"] == ["murrao"]
     ana.close()
     beto.close()
+
+
+def test_roupa_nova_chega_nos_outros(server):
+    ana, _ = join(server.port, "ANA")
+    beto, _ = join(server.port, "BETO")
+    beto.send({"t": "look", "look": {"top": "regata"}})
+    message = wait_for(ana, "look")
+    assert (message["id"], message["look"]) == (beto.id, {"top": "regata"})
+    carlos, others = join(server.port, "CARLOS")
+    assert next(p for p in others if p["name"] == "BETO")["look"] == {"top": "regata"}   # quem chega já vê
+    for client in (ana, beto, carlos):
+        client.close()

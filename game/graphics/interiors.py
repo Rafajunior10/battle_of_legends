@@ -30,8 +30,10 @@ def _box(s, rect, color, radius=0):
 
 
 # ============================================================ chão e paredes
-def cafe_ground(w: int, h: int, exit_x: int) -> pygame.Surface:
+def cafe_ground(grid) -> pygame.Surface:
     """Lanchonete: piso de tábuas, xadrez no balcão, tapetes, parede do fundo decorada e paredes laterais."""
+    h, w = len(grid), len(grid[0])
+    exit_x = grid[-1].index(next(c for c in grid[-1] if c != "#"))    # a porta: o vão na parede de baixo
     s = pygame.Surface((w * TILE, h * TILE))
     width, height = w * TILE, h * TILE
     floor = pygame.Rect(TILE, 3 * TILE, width - 2 * TILE, height - 4 * TILE)
@@ -239,8 +241,11 @@ def tv() -> pygame.Surface:
     return s
 
 
-def tv_channels() -> list[pygame.Surface]:
-    """Os 3 canais da TV (mesma ordem de world.TV_SHOWS): coliseu ao vivo, tempo e carta do dia."""
+def tv_channels(size=None) -> list[pygame.Surface]:
+    """Os 3 canais da TV (mesma ordem de world.TV_SHOWS): coliseu ao vivo, tempo e carta do dia.
+    `size`: tela menor (TV do quarto): os canais são reduzidos uma vez."""
+    if size and tuple(size) != TV_SCREEN.size:
+        return [pygame.transform.scale(frame, size) for frame in tv_channels()]
     w, h = TV_SCREEN.size
     live = pygame.Surface((w, h))
     live.fill((110, 180, 240))

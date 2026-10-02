@@ -32,7 +32,7 @@ CROP = pygame.Rect(16, 1, 32, 44)                # recorte do quadro 64 x 64: os
 
 # Escolhas da aparência (game/data/looks.py) -> arquivo do pacote: código da peça + variação de cor
 SKINS = ["v01", "v02", "v03", "v04", "v05", "v06", "v07"]            # 7 tons humanos (looks.SKIN_TONES)
-HAIRS = {"curto": "dap1", "chanel": "bob1", "raspado": "dap1", "longo": "bob1", "careca": None}
+HAIRS = {"curto": "dap1", "chanel": "bob1", "raspado": "dap1", "longo": "bob1", "cacheado": "bob1", "careca": None}
 HAIR_VARIANTS = {
     "preto": "v13", "castanho": "v11", "loiro": "v03", "ruivo": "v05", "acobreado": "v04", "rosa": "v12",
     "vermelho": "v06", "roxo": "v07", "verde": "v08", "azul": "v09", "grisalho": "v10", "branco": "v01",

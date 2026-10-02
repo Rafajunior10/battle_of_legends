@@ -1,7 +1,8 @@
 """Mapas do mundo: tiles, prédios, portas, placas, NPCs, treinadores e passagens. Sem Pygame.
 
 Legenda dos tiles: . grama  , mato alto  = caminho  W água  B ponte  f flores  T árvore  F cerca
-                   S placa  R pedra  # parede (interior)  _ piso (interior)
+                   S placa  R pedra
+Interiores:        # parede  _ piso de madeira  t piso de azulejo  c carpete  s escada
 Cada mapa é um MapDef; as passagens (Warp) levam de um mapa a outro quando o jogador pisa nelas.
 Interiores (como a lanchonete) têm `interior`: o chão e as paredes são desenhados por código
 (game/graphics/interiors.py) em vez de vir do tileset.
@@ -17,7 +18,7 @@ from game.data.opponents import FOREST_WILD_TYPES, WILD_TYPES
 from game.data.props import OBJECTS
 
 SOLID_TILES = frozenset("TWFSR#")
-WALL, FLOOR = "#", "_"
+WALL, FLOOR, TILE_FLOOR, CARPET, STAIRS = "#", "_", "t", "c", "s"
 TALL_GRASS = ","
 WATER = "W"
 
@@ -94,6 +95,7 @@ class MapDef:
     warps: list[Warp] = field(default_factory=list)
     wild_bonus: int = 0                  # gosmas daqui ficam este tanto de níveis acima do jogador
     interior: str = ""                   # chão desenhado por código (interiors.py); "" = tileset ao ar livre
+    private: bool = False                # cada jogador tem o seu (a casa): os outros online não aparecem
 
     @property
     def doors(self) -> dict[tuple[int, int], str]:
@@ -111,9 +113,15 @@ class MapDef:
 
     @property
     def seats(self) -> dict[tuple[int, int], str]:
-        """Tile do assento (a linha de baixo do objeto) -> para onde quem senta fica olhando."""
-        return {(o.x, o.y + OBJECTS[o.name].h - 1): o.action.split(":", 1)[1]
-                for o in self.objects if o.action and o.action.startswith("seat:")}
+        """Tiles do assento -> para onde quem senta fica olhando. É a linha de baixo do objeto (ou a
+        `seat_row` do catálogo, como no sofá), em toda a largura dele."""
+        seats = {}
+        for o in self.objects:
+            if o.action and o.action.startswith("seat:"):
+                d = OBJECTS[o.name]
+                row = d.h - 1 if d.seat_row is None else d.seat_row
+                seats.update({(o.x + dx, o.y + row): o.action.split(":", 1)[1] for dx in range(d.w)})
+        return seats
 
     @property
     def uses(self) -> dict[tuple[int, int], str]:
@@ -428,7 +436,164 @@ CAFE = MapDef(
            Warp(CAFE_EXIT[0] + 1, CAFE_EXIT[1], "vila", CAFE_DOOR[0], CAFE_DOOR[1] + 1, "down")],
 )
 
-MAPS = {m.id: m for m in (VILA, BOSQUE, CAFE)}
+# ============================================================ Casa do jogador (2 andares, particular)
+# Térreo: cozinha americana com ilha, sala de jantar, sala de TV com sofá e estante de troféus, lavabo.
+# Andar de cima: suíte do casal (closet, cama de casal, TV e banheiro com box), quarto de hóspedes e
+# banheiro do corredor. A escada liga os dois: pisar no último degrau troca de andar.
+HOUSE_W, HOUSE_H = 32, 18
+HOUSE_EXIT = (15, HOUSE_H - 1)             # porta da rua (2 tiles) na parede de baixo do térreo
+HOUSE_SPOT = (HOUSE_EXIT[0], HOUSE_H - 2)
+STAIRS_DOWN_TOP = (13, 3)                  # térreo: a escada sobe pelos tiles (13..14, 3..5)
+STAIRS_UP_BOTTOM = (13, 16)                # andar de cima: a escada desce pelos tiles (13..14, 14..16)
+
+
+def _house_grid(floors, walls):
+    """Grade de um andar: paredes em volta (3 linhas no fundo), pisos por região e paredes internas."""
+    g = [[FLOOR for _ in range(HOUSE_W)] for _ in range(HOUSE_H)]
+    for y in range(HOUSE_H):
+        for x in range(HOUSE_W):
+            if y < 3 or x in (0, HOUSE_W - 1) or y == HOUSE_H - 1:
+                g[y][x] = WALL
+    for tile, (x0, y0, w, h) in floors:
+        for y in range(y0, y0 + h):
+            for x in range(x0, x0 + w):
+                g[y][x] = tile
+    for x0, y0, w, h in walls:
+        for y in range(y0, y0 + h):
+            for x in range(x0, x0 + w):
+                g[y][x] = WALL
+    return g
+
+
+def build_house_ground() -> list[list[str]]:
+    g = _house_grid(floors=[(TILE_FLOOR, (1, 3, 12, 7)), (TILE_FLOOR, (27, 12, 4, 5)), (STAIRS, (13, 3, 2, 3))],
+                    walls=[(26, 11, 5, 1), (26, 12, 1, 5)])
+    g[14][26] = TILE_FLOOR                                  # porta do lavabo
+    g[HOUSE_EXIT[1]][HOUSE_EXIT[0]] = g[HOUSE_EXIT[1]][HOUSE_EXIT[0] + 1] = FLOOR
+    return g
+
+
+def build_house_upper() -> list[list[str]]:
+    g = _house_grid(floors=[(CARPET, (1, 3, 11, 7)), (TILE_FLOOR, (13, 3, 6, 7)), (CARPET, (20, 3, 11, 7)),
+                            (TILE_FLOOR, (24, 11, 7, 6)), (STAIRS, (13, 14, 2, 3))],
+                    walls=[(1, 10, 30, 1), (19, 3, 1, 7), (12, 3, 1, 7), (23, 11, 1, 6)])
+    g[10][6] = CARPET                                       # porta da suíte
+    g[10][25] = CARPET                                      # porta do quarto de hóspedes
+    g[7][12] = TILE_FLOOR                                   # porta do banheiro da suíte
+    g[14][23] = TILE_FLOOR                                  # porta do banheiro do corredor
+    return g
+
+
+HOUSE_GROUND = MapDef(
+    id="casa_terreo",
+    name="Sua casa",
+    build=build_house_ground,
+    interior="casa_terreo",
+    private=True,
+    objects=[
+        # cozinha americana
+        Placed("kitchen_counter", 1, 1),
+        Placed("fridge", 9, 1),
+        Placed("plant", 11, 2),
+        Placed("island", 3, 6),
+        *(Placed("stool", x, 8, "seat:up") for x in range(3, 7)),
+        # sala de jantar
+        Placed("dining_table", 3, 12),
+        Placed("dchair_d", 4, 10, "seat:down"),
+        Placed("dchair_d", 5, 10, "seat:down"),
+        Placed("dchair_u", 4, 14, "seat:up"),
+        Placed("dchair_u", 5, 14, "seat:up"),
+        Placed("dchair_r", 2, 11, "seat:right"),
+        Placed("dchair_l", 7, 11, "seat:left"),
+        Placed("plant", 1, 15),
+        Placed("sideboard", 9, 15),
+        # sala de TV
+        Placed("tv", 19, 1, "use:tv"),
+        Placed("tv_rack", 18, 3, "use:tv"),
+        Placed("coffee_table", 19, 6),
+        Placed("sofa", 18, 8, "seat:up"),
+        Placed("floor_lamp", 17, 7),
+        Placed("floor_lamp", 23, 7),
+        Placed("trophy_shelf", 25, 1, "use:trophies"),
+        Placed("plant", 30, 2),
+        Placed("plant", 17, 15),
+        # lavabo
+        Placed("bath_sink", 27, 11),
+        Placed("toilet", 29, 11),
+    ],
+    signs={
+        (9, 3): "GELADEIRA: tem suco, frutas e o bolo que a Rebeca fez.",
+        (10, 3): "GELADEIRA: tem suco, frutas e o bolo que a Rebeca fez.",
+        **{(x, 3): "COZINHA: fogão, pia e cafeteira. Tudo brilhando!" for x in range(1, 9)},
+        **{(x, y): "ILHA DA COZINHA: o lugar do café da manhã." for x in range(3, 7) for y in (6, 7)},
+        (27, 12): "PIA DO LAVABO: sabonete de lavanda.",
+        (29, 12): "Lavabo limpinho.",
+    },
+    helpers={
+        "rebeca": Helper(Spot(8, 5, "down", True),
+                         Look("Feminino", "cacheado", "castanho", 3, top="top", shirt="preto",
+                              bottom="shorts", legs="preto", shoes="branco")),
+    },
+    warps=[Warp(HOUSE_EXIT[0], HOUSE_EXIT[1], "vila", HOME_SPOT[0], HOME_SPOT[1], "down"),
+           Warp(HOUSE_EXIT[0] + 1, HOUSE_EXIT[1], "vila", HOME_SPOT[0], HOME_SPOT[1], "down"),
+           Warp(STAIRS_DOWN_TOP[0], STAIRS_DOWN_TOP[1], "casa_superior", STAIRS_UP_BOTTOM[0], 13, "up"),
+           Warp(STAIRS_DOWN_TOP[0] + 1, STAIRS_DOWN_TOP[1], "casa_superior", STAIRS_UP_BOTTOM[0] + 1, 13, "up")],
+)
+
+HOUSE_UPPER = MapDef(
+    id="casa_superior",
+    name="Andar de cima",
+    build=build_house_upper,
+    interior="casa_superior",
+    private=True,
+    objects=[
+        # suíte do casal
+        Placed("closet", 1, 1, "use:closet"),
+        Placed("nightstand", 4, 2),
+        Placed("bed_double", 5, 2, "use:bed"),
+        Placed("nightstand", 8, 2),
+        Placed("tv_small", 10, 1, "use:tv"),
+        Placed("dresser", 1, 8),
+        Placed("plant", 11, 8),
+        # banheiro da suíte
+        Placed("toilet", 13, 2),
+        Placed("vanity", 15, 2),
+        Placed("shower", 17, 2),
+        # quarto de hóspedes
+        Placed("bed_single", 21, 2, "use:bed"),
+        Placed("nightstand", 23, 2),
+        Placed("tv_small", 28, 1, "use:tv"),
+        Placed("dresser", 26, 8),
+        Placed("plant", 20, 8),
+        # corredor e banheiro do corredor
+        Placed("plant", 1, 15),
+        Placed("plant", 21, 15),
+        Placed("toilet", 25, 10),
+        Placed("bath_sink", 27, 10),
+        Placed("bathtub", 28, 15),
+    ],
+    signs={
+        (13, 3): "Banheiro da suíte: tudo cheirando a eucalipto.",
+        (15, 3): "PIA DUPLA: uma para você, outra para a Rebeca.",
+        (16, 3): "PIA DUPLA: uma para você, outra para a Rebeca.",
+        (17, 4): "BOX: chuveiro quentinho com vidro temperado.",
+        (18, 4): "BOX: chuveiro quentinho com vidro temperado.",
+        (4, 3): "Criado-mudo com abajur e um livro de estratégias de cartas.",
+        (8, 3): "Criado-mudo com o porta-retrato do casamento.",
+        (23, 3): "Criado-mudo do quarto de hóspedes.",
+        (1, 9): "CÔMODA: meias, toalhas e cartas repetidas.",
+        (2, 9): "CÔMODA: meias, toalhas e cartas repetidas.",
+        (26, 9): "CÔMODA de hóspedes: vazia, esperando visita.",
+        (27, 9): "CÔMODA de hóspedes: vazia, esperando visita.",
+        (25, 11): "Banheiro do corredor.",
+        (27, 11): "Pia do banheiro do corredor.",
+        **{(x, y): "BANHEIRA: espuma de morango!" for x in range(28, 31) for y in (15, 16)},
+    },
+    warps=[Warp(STAIRS_UP_BOTTOM[0], STAIRS_UP_BOTTOM[1], "casa_terreo", STAIRS_DOWN_TOP[0], 6, "down"),
+           Warp(STAIRS_UP_BOTTOM[0] + 1, STAIRS_UP_BOTTOM[1], "casa_terreo", STAIRS_DOWN_TOP[0] + 1, 6, "down")],
+)
+
+MAPS = {m.id: m for m in (VILA, BOSQUE, CAFE, HOUSE_GROUND, HOUSE_UPPER)}
 
 
 # ============================================================ falas
@@ -505,4 +670,14 @@ TV_SHOWS = [
     "TV: AO VIVO do Coliseu! O desafiante joga um CHOQUE DO TROVÃO... e a torcida vai à loucura!",
     "TV: Previsão do tempo: sol na Vila Carta e névoa no Bosque Sussurro. Cuidado com as gosmas!",
     "TV: CARTA DO DIA! Lembre: com 4 marcadores de gelo, o oponente congela e perde o turno.",
+]
+
+# Rebeca, sua esposa (em casa). {name} = seu nome.
+REBECA_LINES = [
+    "REBECA: Oi, amor! Como foram os duelos hoje?",
+    "REBECA: Já viu a estante da sala? Cada troféu do Coliseu vai pra lá. Tô orgulhosa de você!",
+    "REBECA: Lá em cima tem o closet do nosso quarto, se quiser trocar de roupa antes de sair.",
+    "REBECA: Cansou? Deita um pouco lá no quarto. Eu cuido de tudo aqui embaixo.",
+    "REBECA: Traz um X-burguer da lanchonete pra mim depois? Hehe.",
+    "REBECA: {name}, vê se não perde pro Zeca, hein! Eu acredito em você.",
 ]

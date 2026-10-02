@@ -1,4 +1,4 @@
-"""Guarda-roupa: peças novas (camisa, regata, top, manga longa, calça, bermuda, saia, vestido, tênis)
+"""Guarda-roupa: peças novas (camisa, regata, top, manga longa, calça, bermuda, shorts, saia, vestido, tênis)
 feitas a partir das roupas desenhadas pelo artista do Mana Seed.
 
 A ideia (leia na ordem):
@@ -54,6 +54,7 @@ class Mold:
         self.bottom = 0        # linha mais baixa (pés)
         self.chest = 0         # linha do corte do top
         self.knee = 0          # linha do corte da bermuda
+        self.thigh = 0         # linha do corte do shorts (mais alto que a bermuda)
 
     def add(self, part, x, y, color):
         self.parts.setdefault(part, []).append((x, y, color))
@@ -117,6 +118,7 @@ def _mold_cell(fstr, pfpn, row, col) -> Mold:
     mold.belt = _busiest_row(pixels, NAVY) or (top + mold.bottom) // 2
     mold.chest = top + round((mold.belt - top) * 0.55)
     mold.knee = mold.belt + round((mold.bottom - mold.belt) * 0.5)
+    mold.thigh = mold.belt + round((mold.bottom - mold.belt) * 0.28)
     for (x, y), role in _classify(pixels, mold).items():
         mold.add(role, x, y, pixels[(x, y)])
     long_pixels = _cell_pixels(pfpn, row, col)
@@ -181,8 +183,8 @@ def _cell(surf, ox, oy, mold: Mold, look: Look):
     bottom_color = CLOTH_COLORS[look.legs][0]
     parts = mold.parts
     # parte de baixo
-    if look.bottom in ("calça", "bermuda"):
-        cut = mold.knee if look.bottom == "bermuda" else None
+    if look.bottom in ("calça", "bermuda", "shorts"):
+        cut = {"bermuda": mold.knee, "shorts": mold.thigh}.get(look.bottom)
         _paint(surf, ox, oy, parts.get("legs", []), bottom_color,
                keep=(lambda x, y: y <= cut) if cut is not None else (lambda x, y: True), hem=cut)
     _paint(surf, ox, oy, parts.get("shoes", []), SHOE_COLORS[look.shoes])
@@ -251,7 +253,74 @@ def _long(hair: dict, body: dict) -> dict:
     return out
 
 
-HAIR_MAKERS = {"raspado": ("dap1", _shaved), "longo": ("bob1", _long)}
+CURLY_EXTRA = 4                 # o cacheado desce um pouco abaixo do chanel (até o ombro)
+
+
+SIDES = ((1, 0), (-1, 0), (0, -1), (0, 1))
+
+
+def _curly(hair: dict, body: dict) -> dict:
+    """Cacheado: o chanel com VOLUME (1 px a mais em volta, menos sobre o rosto), pontas que descem até o
+    ombro em ondas, contorno recortado em bolinhas e "cachos" (pontos claros e escuros) por dentro."""
+    tones = sorted({c for c in hair.values() if c != OUTLINE}, key=_lum)
+    if not tones:
+        return dict(hair)
+    eyes = _eye_row(body)
+
+    def over_face(p):
+        return p in body and p[1] >= eyes - 2 and p not in hair
+
+    shape = _curly_volume(_curly_ends(hair, eyes), eyes, over_face)
+    out = _curly_paint(shape, hair, (tones[0], tones[len(tones) // 2], tones[-1]))
+    for (x, y), color in list(out.items()):              # fecha o contorno onde o recorte abriu buraco
+        if color != OUTLINE:
+            for dx, dy in SIDES:
+                p = (x + dx, y + dy)
+                if p not in out and not over_face(p):
+                    out[p] = OUTLINE
+    return out
+
+
+def _curly_ends(hair: dict, eyes: int) -> set:
+    """As mechas que já passam dos olhos descem CURLY_EXTRA linhas, uma coluna sim, outra não (ondas)."""
+    mask = set(hair)
+    columns: dict = {}
+    for (x, y) in hair:
+        columns.setdefault(x, []).append(y)
+    for x, ys in columns.items():
+        bottom = max(ys)
+        if bottom >= eyes + 1:
+            mask |= {(x, bottom + k) for k in range(1, CURLY_EXTRA - (x % 2) + 1)}
+    return mask
+
+
+def _curly_volume(mask: set, eyes: int, over_face) -> set:
+    """1 px de volume para fora, sem cobrir o rosto e sem crescer para baixo acima dos olhos."""
+    grown = set(mask)
+    for (x, y) in mask:
+        for dx, dy in SIDES:
+            p = (x + dx, y + dy)
+            if p not in mask and not over_face(p) and (dy != 1 or y >= eyes):
+                grown.add(p)
+    return grown
+
+
+def _curly_paint(shape: set, hair: dict, tones) -> dict:
+    """Contorno recortado em bolinhas e, por dentro, pontos claros e escuros que parecem cachos."""
+    dark, mid, light = tones
+    out = {}
+    for (x, y) in shape:
+        if any((x + dx, y + dy) not in shape for dx, dy in SIDES):
+            if (x * 7 + y * 3) % 4 or (x, y) in hair:
+                out[(x, y)] = OUTLINE
+            continue
+        curl = (x * 3 + y * 5) % 7
+        base = hair.get((x, y), mid)
+        out[(x, y)] = light if curl == 0 else dark if curl == 4 else (mid if base == OUTLINE else base)
+    return out
+
+
+HAIR_MAKERS = {"raspado": ("dap1", _shaved), "longo": ("bob1", _long), "cacheado": ("bob1", _curly)}
 
 
 def hair_layer(style: str, hair_path: str, body_path: str) -> pygame.Surface:

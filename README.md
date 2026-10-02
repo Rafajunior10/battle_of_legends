@@ -91,14 +91,21 @@ ser as do legend.
 
 ## O que tem no jogo
 
-- **Criação de personagem** em camadas: cabelo (curto, raspado, chanel, longo, careca), 12 cores de cabelo,
-  7 tons de pele, camisa/regata/manga longa/top, calça/bermuda/saia/vestido, tênis e chapéu.
+- **Criação de personagem** em camadas: cabelo (curto, raspado, chanel, longo, cacheado, careca), 12 cores de
+  cabelo, 7 tons de pele, camisa/regata/manga longa/top, calça/bermuda/shorts/saia/vestido, tênis e chapéu.
 - **Vila Carta** e **Bosque Sussurro**, ligados por passagens, com construções que têm placas, NPCs,
   treinadores com nível e monstros no mato alto.
 - **Loja de cartas** separada por tipo (sub-abas Fogo, Gelo, Raio, Veneno e Utilidades): comprar,
   evoluir cartas até o nível 3 (com XP de batalha ou BETS) e vender cópias que sobram.
 - **Editor de deck**: escolha o tipo do deck (e o legend); a lista só mostra as cartas que podem entrar.
 - **Coliseu**: torneio de 3 rodadas, XP em dobro e 500 BETS para o campeão.
+- **Sua casa** (a porta com o seu nome, na vila), uma casa moderna de 2 andares. Cada jogador online tem a
+  sua: ninguém aparece na casa do outro.
+  - Térreo: cozinha americana com ilha e banquetas, sala de jantar, sala de TV com sofá e mesa de centro,
+    **estante de troféus** (um troféu para cada título do Coliseu, mais as medalhas dos mestres vencidos) e
+    lavabo. A **REBECA**, sua esposa, fica na cozinha e conversa com você.
+  - Andar de cima (pela escada): suíte do casal com cama, TV, **closet** (troca de roupa) e banheiro com box;
+    quarto de hóspedes com cama e TV; banheiro no corredor. Deitar na cama salva o jogo.
 - **Lanchonete** (na vila, ao lado da loja): entre pela porta e ande lá dentro.
   - A atendente **LU**, no caixa, vende maçã, banana, café, refrigerante, sorvete e X-burguer. O lanche dá
     PV a mais na **próxima batalha** (de +3 a +12) e só cabe um por vez. No duelo PvP o lanche não vale.
@@ -170,6 +177,7 @@ game/
     tilemap.py               chão, objetos e sombras dos mapas (pacote Ninja Adventure)
     buildings.py, backgrounds.py  construções com placa e o cenário da batalha
     interiors.py             interiores por código: chão e paredes, móveis da lanchonete e canais da TV
+    house.py                 a casa: chão e paredes a partir da planta, móveis e a estante de troféus
     pixelart.py, pixelfont.py     cartas, ícones e a fonte pixel própria
   engine/                    MOTOR
     app.py, display.py       laço principal, janela, FPS
@@ -182,7 +190,8 @@ game/
     battle_hud.py            desenho da batalha (painéis, marcadores, mão, botões)
     battle_fx.py             animações: transformação, faixa do legend, golpes, partículas
     lobby.py, actors.py      mundo andável e personagens em grade (andando ou sentados)
-    cafe.py, trade_table.py  lanchonete (atendente, assentos, TV) e a tela da mesa de troca
+    cafe.py, trade_table.py  interiores (lanchonete e casa: atendente, Rebeca, assentos, TV) e a mesa de troca
+    closet.py                closet da suíte: trocar de roupa (a tela de criação só com as roupas)
     online.py                tela JOGAR: hospedar ou entrar no mundo, login e criação de conta
     duel.py                  duelo online contra outro jogador (a batalha, com o oponente vindo da rede)
     shop.py, deckedit.py, create.py, profile.py, options.py, title.py, common.py

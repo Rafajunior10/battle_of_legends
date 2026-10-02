@@ -53,6 +53,11 @@ def choices_of(option, look: Look) -> list:
 
 
 class CreateScene(Scene):
+    TITLE = "CRIE SEU PERSONAGEM"
+    FIELDS = None              # campos que aparecem (None = todos); o closet mostra só as roupas
+    HAS_NAME = True
+    DONE_HINT = "Aperte {a} para começar a sua aventura!"
+
     def __init__(self, game, on_created=None):
         """on_created(personagem): quem cuida do personagem novo (a tela de login: salva no servidor e
         entra no mundo). Sem ela (testes), o personagem é salvo no arquivo e vai direto para a vila."""
@@ -80,22 +85,23 @@ class CreateScene(Scene):
             hidden.add("hat_color")
         if look.hair == "careca" or look.hat == "capuz":
             hidden.add("hair_color")
-        return [o for o in OPTIONS if o[1] not in hidden]
+        return [o for o in OPTIONS if o[1] not in hidden and (self.FIELDS is None or o[1] in self.FIELDS)]
 
     @property
     def name_row(self):
-        return len(self.options)
+        return len(self.options) if self.HAS_NAME else -1
 
     @property
     def done_row(self):
-        return len(self.options) + 1
+        return len(self.options) + (1 if self.HAS_NAME else 0)
 
     @property
     def row_count(self):
-        return len(self.options) + 2
+        return self.done_row + 1
 
     def on_enter(self):
-        pygame.key.start_text_input()
+        if self.HAS_NAME:
+            pygame.key.start_text_input()
         sfx.music("lobby")
 
     # ------------------------------------------------------------ input
@@ -206,8 +212,7 @@ class CreateScene(Scene):
 
     def draw(self, surf):
         surf.blit(self.bg, (0, 0))
-        draw_outlined(surf, "CRIE SEU PERSONAGEM", (GAME_W // 2, 10), (248, 248, 248), (32, 40, 88), size=24,
-                      align="center")
+        draw_outlined(surf, self.TITLE, (GAME_W // 2, 10), (248, 248, 248), (32, 40, 88), size=24, align="center")
         self.draw_preview(surf)
         box = pygame.Rect(GAME_W - 262, 32, 250, 16 + ROW_H * self.row_count)
         draw_box(surf, box)
@@ -243,11 +248,11 @@ class CreateScene(Scene):
     def draw_hint(self, surf):
         if self.warning and self.row == self.name_row:
             hint = self.warning
-        elif self.row < self.name_row:
+        elif self.row < len(self.options):
             hint = "ESQ/DIR mudam a opção. CIMA/BAIXO trocam de linha."
         elif self.row == self.name_row:
             hint = "Digite seu nome no teclado. ENTER para confirmar."
         else:
-            hint = f"Aperte {action_label('a')} para começar a sua aventura!"
+            hint = self.DONE_HINT.format(a=action_label("a"), b=action_label("b"))
         draw_box(surf, (4, GAME_H - 36, GAME_W - 8, 32))
         draw_text(surf, wrap(hint, GAME_W - 36)[0], (18, GAME_H - 26))
