@@ -20,6 +20,7 @@ class Game:
         config.load()
         self.display = Display()
         self.clock = pygame.time.Clock()
+        sfx.set_music_volume(config.audio["music"])   # volume salvo nas OPÇÕES
         sfx.init()
         self.character = None
         self.lobby = None

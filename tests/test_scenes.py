@@ -475,3 +475,23 @@ def test_criacao_online_entrega_o_personagem(game):
     scene.name = "Nova"
     scene.finish()
     assert [c.name for c in created] == ["Nova"]
+
+
+def test_opcoes_abaixam_e_desligam_a_musica(game, drive):
+    from game.engine import config, sfx
+    from game.scenes.options import ROW_MUSIC
+    scene = OptionsScene(game, lambda: TitleScene(game))
+    game.change_scene(scene)
+    for _ in range(ROW_MUSIC):
+        drive.press(pygame.K_DOWN)
+    assert config.audio["music"] == 100
+    drive.press(pygame.K_LEFT)                               # 100% -> 75%
+    assert config.audio["music"] == 75 and sfx._music_percent == 75
+    for _ in range(3):
+        drive.press(pygame.K_LEFT)
+    assert config.audio["music"] == 0                        # DESLIGADA
+    drive.step()                                             # desenha "MÚSICA  <  DESLIGADA  >"
+    config.load()                                            # ficou salvo no config.json
+    assert config.audio["music"] == 0
+    config.audio["music"] = 100
+    sfx.set_music_volume(100)

@@ -1,8 +1,8 @@
-"""Opções: modo de tela (janela / tela cheia), tamanho da janela, FPS e teclas."""
+"""Opções: modo de tela (janela / tela cheia), tamanho da janela, FPS, volume da música e teclas."""
 import pygame
 
 from game.engine import config, sfx
-from game.engine.config import ACTIONS, FPS_OPTIONS, SCALES, action_label, key_label
+from game.engine.config import ACTIONS, FPS_OPTIONS, SCALES, VOLUME_LEVELS, action_label, key_label
 from game.engine.settings import (
     CANCEL_KEYS,
     CONFIRM_KEYS,
@@ -17,23 +17,29 @@ from game.engine.settings import (
 from game.engine.ui import draw_box, draw_cursor, draw_text, vertical_gradient
 from game.scenes.base import Scene
 
-ROW_SCREEN, ROW_SCALE, ROW_FPS, ROW_SHOW_FPS = 0, 1, 2, 3
-FIRST_ACTION = 4
+ROW_SCREEN, ROW_SCALE, ROW_FPS, ROW_SHOW_FPS, ROW_MUSIC = 0, 1, 2, 3, 4
+FIRST_ACTION = 5
 ROW_RESET = FIRST_ACTION + len(ACTIONS)
 ROW_BACK = ROW_RESET + 1
 ROWS = ROW_BACK + 1
 COL_X = (GAME_W - 190, GAME_W - 84)   # centro das colunas TECLA 1 e TECLA 2
 
 
-RESET_Y = 99 + len(ACTIONS) * 12 + 4      # logo abaixo da última ação (cresce sozinho com ações novas)
+CONTROLS_Y = 36 + FIRST_ACTION * 12        # linha que separa as opções da lista de teclas
+ACTIONS_Y = CONTROLS_Y + 15
+RESET_Y = ACTIONS_Y + len(ACTIONS) * 12 + 4   # logo abaixo da última ação (cresce sozinho com ações novas)
 
 
 def row_y(row):
     if row < FIRST_ACTION:
         return 36 + row * 12
     if row < ROW_RESET:
-        return 99 + (row - FIRST_ACTION) * 12
+        return ACTIONS_Y + (row - FIRST_ACTION) * 12
     return RESET_Y + (row - ROW_RESET) * 12
+
+
+def volume_label(percent):
+    return "DESLIGADA" if percent == 0 else f"{percent}%"
 
 
 def fps_label(fps):
@@ -101,6 +107,12 @@ class OptionsScene(Scene):
             config.display["show_fps"] = not config.display["show_fps"]
             config.save()
             sfx.play("cursor")
+        elif self.row == ROW_MUSIC:
+            i = VOLUME_LEVELS.index(config.audio["music"])
+            config.audio["music"] = VOLUME_LEVELS[(i + step) % len(VOLUME_LEVELS)]
+            sfx.set_music_volume(config.audio["music"])
+            config.save()
+            sfx.play("cursor")
         elif FIRST_ACTION <= self.row < ROW_RESET:
             self.col = 1 - self.col
             sfx.play("cursor")
@@ -153,15 +165,16 @@ class OptionsScene(Scene):
             (ROW_SCALE, "TAMANHO DA JANELA", f"{GAME_W * scale}x{GAME_H * scale}", full),
             (ROW_FPS, "LIMITE DE FPS", fps_label(config.display["fps"]) + vsync, False),
             (ROW_SHOW_FPS, "MOSTRAR FPS", "SIM" if config.display["show_fps"] else "NÃO", False),
+            (ROW_MUSIC, "MÚSICA", volume_label(config.audio["music"]), False),
         ]
         for row, label, value, dim in rows:
             self.draw_label(surf, row, label, dim=dim, size=12)
             self.draw_choice(surf, row, value, dim=dim)
 
-        pygame.draw.line(surf, (184, 200, 216), (14, 84), (GAME_W - 14, 84))
-        draw_text(surf, "CONTROLES", (16, 87), color=(208, 64, 56), size=12)
+        pygame.draw.line(surf, (184, 200, 216), (14, CONTROLS_Y), (GAME_W - 14, CONTROLS_Y))
+        draw_text(surf, "CONTROLES", (16, CONTROLS_Y + 3), color=(208, 64, 56), size=12)
         for x, title in zip(COL_X, ("TECLA 1", "TECLA 2"), strict=True):
-            draw_text(surf, title, (x, 87), color=(136, 136, 144), size=12, align="center")
+            draw_text(surf, title, (x, CONTROLS_Y + 3), color=(136, 136, 144), size=12, align="center")
         for i, (action, name) in enumerate(ACTIONS):
             row = FIRST_ACTION + i
             self.draw_label(surf, row, name, size=12)

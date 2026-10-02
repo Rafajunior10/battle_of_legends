@@ -35,6 +35,8 @@ FPS_OPTIONS = [60, 120, 144, 0]     # 0 = sem limite (o vsync ainda segura no ri
 
 bindings = {k: list(v) for k, v in DEFAULT_BINDINGS.items()}
 display = {"fullscreen": False, "scale": 3, "fps": 60, "show_fps": False}
+audio = {"music": 100}                 # volume da música em % (um dos VOLUME_LEVELS; 0 = desligada)
+VOLUME_LEVELS = [0, 25, 50, 75, 100]
 online = {"address": "", "user": ""}   # último endereço e usuário digitados na tela JOGAR
 
 
@@ -134,6 +136,8 @@ def load():
     if disp.get("fps") in FPS_OPTIONS:
         display["fps"] = disp["fps"]
     display["show_fps"] = bool(disp.get("show_fps", False))
+    music = data.get("audio", {}).get("music", 100)
+    audio["music"] = music if music in VOLUME_LEVELS else 100
     for action, keys in data.get("bindings", {}).items():
         if action in bindings and isinstance(keys, list) and len(keys) == 2 and any(keys):
             bindings[action] = [int(k) for k in keys]
@@ -154,6 +158,6 @@ def _drop_duplicates():
 def save():
     try:
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump({"display": display, "bindings": bindings, "online": online}, f, indent=2)
+            json.dump({"display": display, "audio": audio, "bindings": bindings, "online": online}, f, indent=2)
     except OSError:
         pass

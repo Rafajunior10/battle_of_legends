@@ -169,10 +169,22 @@ def init():
     pygame.mixer.set_num_channels(16)
     pygame.mixer.set_reserved(1)
     _channel = pygame.mixer.Channel(0)
-    _channel.set_volume(0.6)
+    set_music_volume(_music_percent)
     for name, (notes, wave, vol, decay) in SFX.items():
         _sounds[name] = pygame.mixer.Sound(buffer=_to_bytes(_render(notes, wave, vol, decay)))
     threading.Thread(target=_build_music, daemon=True).start()
+
+
+MUSIC_MAX = 0.6            # volume do canal da música em 100% (os efeitos ficam mais altos que ela)
+_music_percent = 100
+
+
+def set_music_volume(percent):
+    """Volume da música em % (0 = desligada). Vale na hora e para as próximas músicas."""
+    global _music_percent
+    _music_percent = max(0, min(100, percent))
+    if _ok:
+        _channel.set_volume(MUSIC_MAX * _music_percent / 100)
 
 
 def play(name):
