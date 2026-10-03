@@ -7,7 +7,7 @@ import random
 
 import pygame
 
-from game.core import economy
+from game.core import economy, hunger
 from game.core.duel import duel_spec, fighter, look_from
 from game.core.economy import ShopError
 from game.core.tournament import ROUND_TITLES, ROUNDS, TOURNAMENT_PRIZE, XP_MULTIPLIER, Tournament
@@ -22,7 +22,6 @@ from game.data.world import (
     HOUSE_GROUND,
     HOUSE_SPOT,
     MAPS,
-    OPPOSITE,
     ROSA_TIPS,
     SOLID_TILES,
     START_MAP,
@@ -48,17 +47,22 @@ from game.engine.ui import Menu, Prompt, draw_box, draw_outlined, draw_text, tex
 from game.graphics import buildings, house, interiors, sprites, tilemap
 from game.graphics import pixelart as art
 from game.net.protocol import EMOTES
-from game.scenes.actors import FOOT_Y, NPC, RUN_TIME, WALK_TIME, Actor, RemotePlayer
+from game.scenes.actors import FOOT_Y, RUN_TIME, WALK_TIME, Actor, RemotePlayer
 from game.scenes.base import Scene
 from game.scenes.cafe import CafeMixin
 from game.scenes.common import draw_bets
+from game.scenes.daynight import DayNightMixin
+from game.scenes.fishing import FishingMixin
+from game.scenes.home import HomeMixin
 from game.scenes.profile import draw_profile
+from game.scenes.town import TownMixin
 
 ENCOUNTER_RATE = 0.12
 SAFE_STEPS = 3             # passos sem encontro depois de uma batalha
 TURN_DELAY = 0.09          # toque rápido numa direção só vira o personagem
 BUMP_COOLDOWN = 0.35
 BANNER_TIME = 3.0
+NEAR_TALK = 6              # balão completo dos NPCs só a até 6 tiles de distância
 MENU_OPTIONS = ["DECK", "FICHA", "SALVAR", "OPÇÕES", "FECHAR", "SAIR"]
 CREAM, WHITE_WALL, SAND = (244, 236, 220), (248, 244, 236), (232, 220, 196)
 NOTICE_TIME = 3.0                              # segundos do aviso "FULANO entrou no mundo!"
@@ -72,6 +76,8 @@ BUILDERS = {
     "card_shop": lambda label: buildings.card_shop(label or "LOJA DE CARTAS"),
     "arena": lambda label: buildings.arena(label or "ARENA"),
     "snack_bar": lambda label: buildings.snack_bar(label or "LANCHONETE"),
+    "stable_site": lambda label: buildings.stable_site(label or "ESTÁBULO"),
+    "mall_site": lambda label: buildings.mall_site(label or "SHOPPING"),
     "lamp": lambda label: buildings.street_lamp(),
     "coliseum": lambda label: art.coliseum(),
     **{name: (lambda label, draw=draw: draw()) for name, draw in interiors.FURNITURE.items()},   # móveis
@@ -82,7 +88,7 @@ MISSING_PACK = ("O pacote de arte Ninja Adventure não foi encontrado em assets/
                 "Ele vem junto com o projeto: baixe o repositório de novo ou veja assets/README.txt.")
 
 
-class LobbyScene(CafeMixin, Scene):
+class LobbyScene(TownMixin, HomeMixin, CafeMixin, DayNightMixin, FishingMixin, Scene):
     def __init__(self, game, first_time=False, map_id=START_MAP, spot=HOME_SPOT, facing="down"):
         super().__init__(game)
         self.ch = game.character
@@ -107,8 +113,13 @@ class LobbyScene(CafeMixin, Scene):
         self.notice, self.notice_t = "", 0.0      # aviso no topo: "FULANO entrou no mundo!"
         self.swap_invite = None            # convite para a mesa de troca, esperando a tela ficar livre
         self.gabi_tip = 0
-        self.rebeca_line = 0
         self.duel_invite = None            # desafio de duelo recebido, esperando a tela ficar livre
+        self.remote_companions = {}        # id do dono -> RemotePlayer (a companheira de outro jogador)
+        self.hunger_clock = 0.0            # segundos que ainda não viraram 1 ponto de fome
+        self.setup_home_state()
+        self.setup_clock()
+        self.setup_fishing()
+        self.setup_town()
         self.load_map(map_id, spot, facing)
         for player in getattr(self.net, "initial_players", []):
             self.add_remote(player)
@@ -123,25 +134,17 @@ class LobbyScene(CafeMixin, Scene):
         self.map_h, self.map_w = len(self.map), len(self.map[0])
         self.solid = self.map_def.solid_objects()
         self.figures = self.build_figures()
-        self.npcs = []
-        for tid, sp in self.map_def.trainers.items():
-            t = TRAINERS[tid]
-            self.npcs.append(NPC(tid, sp, sprites.character_frames(t["look"]), lambda tid=tid: self.talk_trainer(tid),
-                                 t["look"]))
-        helper_talk = {"beto": self.talk_beto, "nina": self.talk_nina, "rosa": self.talk_rosa,
-                       "lu": self.talk_lu, "gabi": self.talk_gabi, "rebeca": self.talk_rebeca}
-        for hid, helper in self.map_def.helpers.items():
-            npc = NPC(hid, helper.spot, sprites.character_frames(helper.look), helper_talk[hid], helper.look)
-            npc.sitting = helper.sitting
-            self.npcs.append(npc)
         self.doors = {pos: self.door_action(kind) for pos, kind in self.map_def.doors.items()}
         if self.map_def.interior:          # interior: chão e paredes desenhados por código
             self.ground = GROUNDS[self.map_def.interior](self.map)
         else:
             self.ground = tilemap.render_ground(self.map)
         self.setup_cafe()
+        self.setup_home()
+        self.fishing = None                # trocou de mapa: a linha de pesca fica para trás
         self.player.place(*spot)
         self.player.facing = facing
+        self.companion_arrives()
         self.trade = None
         self.send_position()
 
@@ -206,6 +209,8 @@ class LobbyScene(CafeMixin, Scene):
     def walkable(self, x, y):
         if self.tile_at(x, y) in SOLID_TILES or (x, y) in self.solid:
             return False
+        if self.spouse_here and (self.spouse_actor.tx, self.spouse_actor.ty) == (x, y):
+            return False
         return all((n.tx, n.ty) != (x, y) for n in self.npcs)
 
     def camera(self):
@@ -215,6 +220,8 @@ class LobbyScene(CafeMixin, Scene):
 
     # ------------------------------------------------------------ input
     def handle(self, event):
+        if self.sleep_t is not None or self.affection:     # dormindo ou no abraço: espera a cena acabar
+            return
         if self.prompt.handle(event):
             return
         if self.menu:
@@ -261,18 +268,25 @@ class LobbyScene(CafeMixin, Scene):
             self.game.transition_to(lambda: TitleScene(self.game))
 
     def interact(self):
+        if self.fishing:
+            self.pull_line()
+            return
+        if self.player.pose in ("lie", "shower"):
+            self.posed_interact()
+            return
         dx, dy = DIR_VECTORS[self.player.facing]
         target = (self.player.tx + dx, self.player.ty + dy)
         remote = next((r for r in self.remotes_here() if (r.tx, r.ty) == target), None)
         if remote and self.net:
             self.talk_to_player(remote)
             return
+        spouse = self.spouse_actor
+        if self.spouse_here and (spouse.tx, spouse.ty) == target and not spouse.moving:
+            self.talk_spouse()
+            return
         npc = next((n for n in self.npcs if (n.tx, n.ty) == target), None)
         if npc:
-            if not npc.sitting:
-                npc.facing = OPPOSITE[self.player.facing]
-            npc.timer = 4.0
-            npc.on_talk()
+            self.talk_npc(npc)
         elif self.cafe_interact(target):
             return
         elif target in self.map_def.signs:
@@ -280,7 +294,7 @@ class LobbyScene(CafeMixin, Scene):
         elif target in self.doors:
             self.doors[target]()
         elif self.tile_at(*target) == WATER:
-            self.say("A água do lago está calma e cristalina.")
+            self.start_fishing(target)
 
     # ------------------------------------------------------------ conversas
     def talk_trainer(self, tid):
@@ -376,6 +390,8 @@ class LobbyScene(CafeMixin, Scene):
                         else self.say("Volte quando estiver pronto. O Coliseu estará aqui!"))
 
     def start_tournament(self):
+        if not self.hungry_check():
+            return
         self.tournament = Tournament(self.ch.level)
         self.next_round()
 
@@ -415,7 +431,16 @@ class LobbyScene(CafeMixin, Scene):
 
     # ------------------------------------------------------------ batalhas
     def challenge(self, trainer_id):
-        self.game.start_battle(trainer_spec(trainer_id), self.after_battle)
+        if self.hungry_check():
+            self.game.start_battle(trainer_spec(trainer_id), self.after_battle)
+
+    def hungry_check(self):
+        """Com fome demais (core/hunger.py), não duela: avisa e devolve False."""
+        if hunger.can_duel(self.ch):
+            return True
+        sfx.play("error")
+        self.say(hunger.WEAK_TEXT)
+        return False
 
     def after_battle(self, won, spec):
         """Chamada pela batalha no meio da transição. Devolve esta cena."""
@@ -437,7 +462,8 @@ class LobbyScene(CafeMixin, Scene):
             return
         self.steps_since_battle += 1
         in_grass = self.tile_at(self.player.tx, self.player.ty) == TALL_GRASS
-        if in_grass and self.steps_since_battle > SAFE_STEPS and random.random() < ENCOUNTER_RATE:
+        calm = self.steps_since_battle <= SAFE_STEPS or not hunger.can_duel(self.ch)   # fraco de fome: sem gosmas
+        if in_grass and not calm and random.random() < ENCOUNTER_RATE:
             self.chain = False
             level = self.ch.level + self.map_def.wild_bonus
             self.game.start_battle(random_wild(level, types=self.map_def.wild_types), self.after_battle)
@@ -446,7 +472,8 @@ class LobbyScene(CafeMixin, Scene):
     @property
     def paused(self):
         """Algo na tela está esperando o jogador: o mundo não se mexe."""
-        return self.prompt.visible or self.menu or self.showing_profile or self.game.busy
+        return (self.prompt.visible or self.menu or self.showing_profile or self.game.busy
+                or self.sleep_t is not None or self.affection)
 
     def update(self, dt):
         self.time += dt
@@ -455,10 +482,13 @@ class LobbyScene(CafeMixin, Scene):
         self.banner_t += dt
         self.bump_cd = max(0.0, self.bump_cd - dt)
         self.prompt.update(dt)
+        self.update_home(dt)
+        self.update_clock(dt)
+        self.update_fishing(dt)
         paused = self.paused
+        self.update_town(dt)
         if not paused:
-            for npc in self.npcs:
-                npc.idle(dt)
+            self.hunger_clock = hunger.tick(self.ch, self.hunger_clock, dt)
         if self.player.update(dt):
             self.on_step_done()
         if not paused and not self.player.moving:
@@ -471,6 +501,10 @@ class LobbyScene(CafeMixin, Scene):
             self.net.send({"t": "move", "map": self.map_key, "x": self.player.tx, "y": self.player.ty,
                            "facing": self.player.facing, "run": running, "sit": self.player.sitting})
 
+    def companions_here(self):
+        """As companheiras dos outros jogadores que estão neste mapa."""
+        return [c for c in self.remote_companions.values() if c.map_id == self.map_key]
+
     def add_remote(self, info):
         frames = sprites.character_frames(look_from(info.get("look")))
         remote = RemotePlayer(info["id"], info.get("name", "???"), frames,
@@ -478,6 +512,23 @@ class LobbyScene(CafeMixin, Scene):
         remote.battle = bool(info.get("battle"))
         remote.sitting = bool(info.get("sit"))
         self.remotes[remote.id] = remote
+        if info.get("companion"):
+            self.update_remote_companion(dict(info["companion"], id=info["id"]))
+
+    def update_remote_companion(self, message):
+        """A companheira de outro jogador andou (ou entrou num lugar onde não dá para ver: map None)."""
+        owner = message.get("id")
+        if not message.get("map"):
+            self.remote_companions.pop(owner, None)
+            return
+        actor = self.remote_companions.get(owner)
+        if actor is None:
+            frames = sprites.character_frames(look_from(message.get("look")))
+            actor = RemotePlayer(owner, str(message.get("name", "???"))[:12], frames, message["map"],
+                                 message.get("x", 0), message.get("y", 0), message.get("facing"))
+            self.remote_companions[owner] = actor
+        actor.queue_move(message["map"], message.get("x", 0), message.get("y", 0), message.get("facing"), False,
+                         "sit" if message.get("pose") == "sit" else "stand")
 
     def update_online(self, dt):
         """Lê o que chegou da rede e anima os outros jogadores (mesmo com um menu aberto)."""
@@ -489,7 +540,7 @@ class LobbyScene(CafeMixin, Scene):
             self.on_net_message(message)
             if self.net is None:
                 return
-        for remote in self.remotes.values():
+        for remote in (*self.remotes.values(), *self.remote_companions.values()):
             remote.tick(dt)
         if self.duel_invite and not self.paused:
             self.ask_challenge(self.duel_invite)
@@ -498,31 +549,44 @@ class LobbyScene(CafeMixin, Scene):
 
     def on_net_message(self, message):
         kind = message["t"]
-        remote = self.remotes.get(message.get("id"))
-        if kind == "join":
-            self.add_remote(message["player"])
-            self.banner(f"{message['player'].get('name', '???')} entrou no mundo!")
-        elif kind == "leave" and remote:
-            del self.remotes[remote.id]
-            self.banner(f"{remote.name} saiu do mundo.")
-        elif kind == "move" and remote:
-            remote.queue_move(message.get("map"), message.get("x"), message.get("y"), message.get("facing"),
-                              message.get("run"), bool(message.get("sit")))
-        elif kind == "emote" and remote:
-            remote.say(message.get("text", ""))
-        elif kind == "status" and remote:
-            remote.battle = bool(message.get("battle"))
-        elif kind == "look" and remote:                 # trocou de roupa no closet
-            remote.frames = sprites.character_frames(look_from(message.get("look")))
-        elif kind in ("challenge", "challenge_denied", "duel_start"):
-            self.on_duel_message(message)
+        world = {"join": self.on_join, "companion": self.update_remote_companion, "clock": self.on_clock_message,
+                 "challenge": self.on_duel_message, "challenge_denied": self.on_duel_message,
+                 "duel_start": self.on_duel_message, "disconnected": self.on_disconnected}
+        if kind in world:
+            world[kind](message)
+        elif kind.startswith("npc"):
+            self.on_npc_message(message)
         elif kind.startswith("swap_"):
             self.on_swap_message(message)
-        elif kind == "disconnected":
-            self.remotes.clear()
-            self.game.leave_online()
-            self.net = None
-            self.say("A conexão com o mundo online caiu. Você continua jogando sozinho.")
+        elif message.get("id") in self.remotes:
+            self.on_remote_message(self.remotes[message["id"]], message)
+
+    def on_join(self, message):
+        self.add_remote(message["player"])
+        self.banner(f"{message['player'].get('name', '???')} entrou no mundo!")
+
+    def on_remote_message(self, remote, message):
+        """Outro jogador andou, falou, entrou em batalha, trocou de roupa ou saiu."""
+        kind = message["t"]
+        if kind == "leave":
+            del self.remotes[remote.id]
+            self.remote_companions.pop(remote.id, None)
+            self.banner(f"{remote.name} saiu do mundo.")
+        elif kind == "move":
+            remote.queue_move(message.get("map"), message.get("x"), message.get("y"), message.get("facing"),
+                              message.get("run"), bool(message.get("sit")))
+        elif kind == "emote":
+            remote.say(message.get("text", ""))
+        elif kind == "status":
+            remote.battle = bool(message.get("battle"))
+        elif kind == "look":                           # trocou de roupa no closet
+            remote.frames = sprites.character_frames(look_from(message.get("look")))
+
+    def on_disconnected(self, message):
+        self.remotes.clear()
+        self.game.leave_online()
+        self.net = None
+        self.say("A conexão com o mundo online caiu. Você continua jogando sozinho.")
 
     def banner(self, text):
         """Aviso curto no topo da tela (quem entrou/saiu)."""
@@ -545,6 +609,8 @@ class LobbyScene(CafeMixin, Scene):
 
     # ------------------------------------------------------------ duelo online (PvP)
     def send_challenge(self, remote):
+        if not self.hungry_check():
+            return
         if remote.battle:
             self.say(f"{remote.name} está numa batalha agora. Tente daqui a pouco.")
             return
@@ -574,6 +640,8 @@ class LobbyScene(CafeMixin, Scene):
         challenger = message.get("from")
 
         def answer(yes):
+            if yes and not self.hungry_check():             # com fome demais: recusa
+                yes = False
             self.net.send({"t": "answer", "to": challenger, "yes": yes, "fighter": fighter(self.ch) if yes else None})
             if yes:
                 self.banner("Duelo aceito! Preparando...")
@@ -604,7 +672,10 @@ class LobbyScene(CafeMixin, Scene):
             self.chain = False
             self.turn_delay = 0.0
             return
-        if self.player.sitting:            # sentado: qualquer direção levanta
+        if self.fishing:                   # pescando: qualquer direção recolhe a linha
+            self.end_fishing()
+            return
+        if self.player.pose != "stand":    # sentado, deitado ou no banho: qualquer direção levanta
             self.stand_up(direction)
             return
         if self.player.facing != direction and not self.chain:
@@ -670,8 +741,14 @@ class LobbyScene(CafeMixin, Scene):
         cam = self.camera()
         surf.blit(self.ground, (0, 0), pygame.Rect(cam, (GAME_W, GAME_H)))
         self.draw_standing(surf, cam)
+        self.draw_affection(surf, cam)
+        self.draw_fishing(surf, cam)
+        self.draw_daylight(surf, cam)
         self.draw_online_labels(surf, cam)
         self.draw_notice(surf)
+        if not self.menu and not self.showing_profile:
+            self.draw_hunger(surf)
+            self.draw_clock(surf)
 
         self.draw_banner(surf)
         if self.showing_profile:
@@ -681,13 +758,33 @@ class LobbyScene(CafeMixin, Scene):
             draw_box(surf, (4, 6, 110, 26))
             draw_bets(surf, self.ch.bets, 104, 12)
         self.prompt.draw(surf)
+        self.draw_sleep(surf)
+
+    def draw_hunger(self, surf):
+        """Barra de FOME no canto de baixo: verde (satisfeito), amarela (com fome), vermelha (fraco)."""
+        value = self.ch.hunger
+        x, y = 6, GAME_H - 16
+        pygame.draw.rect(surf, (20, 20, 32), (x, y, 78, 11), border_radius=3)
+        draw_text(surf, "FOME", (x + 4, y + 2), size=8, color=(250, 246, 236), shadow=None)
+        bar = pygame.Rect(x + 26, y + 3, 48, 5)
+        pygame.draw.rect(surf, (60, 60, 74), bar)
+        if value >= hunger.FULL:
+            color = (90, 210, 110)
+        elif value >= hunger.WEAK:
+            color = (240, 200, 70)
+        else:
+            color = (230, 70, 60) if int(self.time * 3) % 2 else (150, 40, 40)   # pisca: fraco de fome
+        pygame.draw.rect(surf, color, (bar.x, bar.y, bar.w * value // hunger.MAX_HUNGER, bar.h))
 
     def draw_standing(self, surf, cam):
         """Objetos e personagens juntos, em ordem de profundidade (quem está mais embaixo fica na frente)."""
         view = pygame.Rect(cam[0] - 64, cam[1] - 64, GAME_W + 128, GAME_H + 128)
         layer = [(foot, 0, img, x, y) for img, x, y, foot in self.figures if view.collidepoint(x, y)]
         # 1: no mesmo pé, o personagem fica na frente do objeto
-        layer.extend((actor.py + TILE, 1, actor, 0, 0) for actor in (*self.npcs, *self.remotes_here(), self.player))
+        actors = [*self.npcs, *self.remotes_here(), *self.companions_here(), self.player]
+        if self.spouse_here:
+            actors.append(self.spouse_actor)
+        layer.extend((actor.depth or actor.py + TILE, 1, actor, 0, 0) for actor in actors)
         layer.extend((tv[1], 2, tv, 0, 0) for tv in self.tvs)   # 2: a tela de cada TV, logo depois da TV
         shadow = tilemap.actor_shadow()
         for _, kind, thing, x, y in sorted(layer, key=lambda item: (item[0], item[1])):
@@ -697,9 +794,9 @@ class LobbyScene(CafeMixin, Scene):
             if kind == 2:
                 self.draw_tv(surf, cam, thing)
                 continue
-            if thing.sitting:
+            if thing.pose != "stand":
                 thing.draw(surf, cam)
-                self.draw_seat_front(surf, thing, cam)
+                self.draw_pose_front(surf, thing, cam)     # assento, edredom ou vidro do box por cima
                 continue
             surf.blit(shadow, (round(thing.px) + 1 - cam[0], round(thing.py) + 12 - cam[1]))
             thing.draw(surf, cam)
@@ -717,6 +814,29 @@ class LobbyScene(CafeMixin, Scene):
                 surf.blit(art.icon("sword"), (x + text_width(remote.name, 12) // 2 + 3, top - 12))
             if remote.emote:
                 self.draw_bubble(surf, remote.emote, x, top - 14)
+        for comp in self.companions_here():                # a companheira de outro jogador: só o nome
+            x = round(comp.px) + TILE // 2 - cam[0]
+            top = round(comp.py) + FOOT_Y - comp.image().get_height() - cam[1]
+            draw_outlined(surf, comp.name, (x, top - 11), (255, 200, 230), (20, 20, 32), size=12, align="center")
+        talkers = [n for n in self.npcs if n.emote]
+        if self.spouse_here and self.spouse_actor.emote:
+            talkers.append(self.spouse_actor)
+        placed = []                                        # balões já desenhados (um não cobre o outro)
+        for actor in talkers:                              # balões dos NPCs e da Rebeca
+            x = round(actor.px) + TILE // 2 - cam[0]
+            top = round(actor.py) + FOOT_Y - actor.image().get_height() - cam[1]
+            if actor.anchor:
+                x, top = actor.anchor[0] - cam[0], actor.anchor[1] - cam[1] + 6
+            bottom = top - 2
+            text = actor.emote
+            far = abs(actor.tx - self.player.tx) + abs(actor.ty - self.player.ty) > NEAR_TALK
+            if far and text != "!":
+                text = "..."                               # longe: só mostra que estão conversando
+            width = text_width(text, 12) + 12
+            while any(pygame.Rect(x - width // 2, bottom - 16, width, 16).colliderect(r) for r in placed):
+                bottom -= 16                               # encostou noutro balão: sobe um andar
+            placed.append(pygame.Rect(x - width // 2, bottom - 16, width, 16))
+            self.draw_bubble(surf, text, x, bottom)
         if self.my_emote and self.my_emote_t > 0:
             x = round(self.player.px) + TILE // 2 - cam[0]
             top = round(self.player.py) + FOOT_Y - self.player.image().get_height() - cam[1]

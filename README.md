@@ -101,14 +101,35 @@ ser as do legend.
 - **Coliseu**: torneio de 3 rodadas, XP em dobro e 500 BETS para o campeão.
 - **Sua casa** (a porta com o seu nome, na vila), uma casa moderna de 2 andares. Cada jogador online tem a
   sua: ninguém aparece na casa do outro.
-  - Térreo: cozinha americana com ilha e banquetas, sala de jantar, sala de TV com sofá e mesa de centro,
-    **estante de troféus** (um troféu para cada título do Coliseu, mais as medalhas dos mestres vencidos) e
-    lavabo. A **REBECA**, sua esposa, fica na cozinha e conversa com você.
-  - Andar de cima (pela escada): suíte do casal com cama, TV, **closet** (troca de roupa) e banheiro com box;
-    quarto de hóspedes com cama e TV; banheiro no corredor. Deitar na cama salva o jogo.
+  - Térreo: cozinha americana com ilha e banquetas, sala de jantar, sala de TV (TV grande) com sofá e mesa de
+    centro, **estante de troféus** (um troféu por título do Coliseu e as medalhas dos mestres) e lavabo.
+  - Andar de cima (pela escada): suíte do casal com a cama de frente para a TV grande, **closet** (troca de
+    roupa) e banheiro com box; quarto de hóspedes; banheiro do corredor.
+  - **Deitar** na cama (A; qualquer direção levanta; deitado, A pergunta se quer dormir e salva o jogo) e
+    **tomar banho** no box.
+- **Rebeca** (só para quem é casado com ela, `spouse` no personagem): tem rotina própria. Cozinha, vê TV,
+  toma banho, cochila, rega as plantas, sai para a praça, conversa com o Beto, a Nina e o Tico, e vai à
+  lanchonete pedir um sorvete e sentar para comer. Falando com ela: CONVERSAR, ME SEGUE (ela vai junto, até
+  entre mapas), ABRAÇAR, BEIJAR e VAMOS DORMIR (ela vai para a cama; deite do lado dela e vocês dormem).
+  No online, os outros jogadores veem a Rebeca quando ela está na vila ou na lanchonete.
+- **Dia, tarde e noite**: um dia do jogo dura 24 minutos (relógio no canto de baixo). O céu fica dourado
+  no fim da tarde e azul à noite, e os postes acendem. À noite os NPCs vão para casa. Deitar na cama à noite é
+  ir dormir: jogando sozinho (ou se só você está online) a noite passa e amanhece às 6h, com o jogo salvo. Com
+  mais gente online, a noite só passa quando TODOS estiverem deitados; enquanto isso ela continua normal.
+- **Lago e pescaria** (depois da ponte, a leste): A de frente para a água joga a linha; quando aparecer "!"
+  na boia, aperte A rápido. Cada peixe é vendido na hora (o PEIXE DOURADO vale 50 BETS; de noite aparece o
+  BAGRE DA NOITE). Ali perto há um ESTÁBULO em obras, e acima do Coliseu um SHOPPING em obras.
+- **NPCs com vida própria** em todos os mapas (vila, bosque, lanchonete e os que vierem): passeiam, param
+  para conversar uns com os outros, os duelistas fazem duelos de treino entre si, e todos vão à lanchonete
+  pedir comida para a Lu e sentar para comer. De vez em quando (aleatório, com intervalo mínimo para não
+  cansar) um duelista vem até você, mostra um "!" e desafia: é só aceitar ou recusar. A Lu (no caixa) e a
+  Gabi (sentada) não saem do lugar. No online o servidor controla os NPCs: os dois jogadores veem igual. A
+  conversa entre NPCs só aparece quando você está perto (de longe, só um "...").
+- **Fome** (barra no canto da tela e na ficha): cai com o tempo e a cada batalha. Comer na lanchonete
+  recupera; de barriga cheia não dá para comer. Abaixo de 20, você não duela (nem as gosmas aparecem) até comer.
 - **Lanchonete** (na vila, ao lado da loja): entre pela porta e ande lá dentro.
-  - A atendente **LU**, no caixa, vende maçã, banana, café, refrigerante, sorvete e X-burguer. O lanche dá
-    PV a mais na **próxima batalha** (de +3 a +12) e só cabe um por vez. No duelo PvP o lanche não vale.
+  - A atendente **LU**, no caixa, vende maçã, banana, café, refrigerante, sorvete e X-burguer. Comer mata a
+    fome e dá PV a mais na **próxima batalha** (de +3 a +12). No duelo PvP o bônus não vale.
   - Sente nas cadeiras e nos **puffs**: A de frente para o assento; qualquer direção levanta. Os outros
     jogadores online veem você sentado.
   - A **TV** tem 3 canais que trocam sozinhos; A de frente para ela (ou sentado no puff) mostra o programa.
@@ -161,13 +182,16 @@ game/
     ai.py                    IA fácil / normal / difícil (inclui as habilidades)
     economy.py, tournament.py  loja, evolução, trocas (Nina e entre jogadores) e o torneio do coliseu
     food.py, duel.py         lanches da lanchonete; regras do duelo online (semente, ficha do jogador)
+    hunger.py, companion.py  fome; a Rebeca (rotina, seguir, dormir)
+    nav.py, townsfolk.py     caminhos dentro e entre mapas; a vida dos NPCs (passear, conversar, desafiar)
+    clock.py, fishing.py     relógio do mundo (manhã, tarde, noite, dormir); o que vem no anzol
     rules.py                 números da batalha (mão, energia, gelo...)
   data/                      DADOS do jogo
     cards.py                 as 27 cartas, tipos, raridades e o deck
     legends.py               os legends
     character.py             personagem, coleção, decks, legends e save
     opponents.py, world.py   treinadores, monstros, mapas (com o interior da lanchonete), NPCs e falas
-    food.py                  cardápio da lanchonete
+    food.py, companion.py    cardápio da lanchonete; a Rebeca (aparência, falas e atividades da rotina)
     looks.py, props.py       aparência das pessoas e catálogo de objetos do mapa
   graphics/                  DESENHO e arte
     sprites.py               ponto único para pedir pessoas, monstros, legends e rostos
@@ -190,7 +214,10 @@ game/
     battle_hud.py            desenho da batalha (painéis, marcadores, mão, botões)
     battle_fx.py             animações: transformação, faixa do legend, golpes, partículas
     lobby.py, actors.py      mundo andável e personagens em grade (andando ou sentados)
-    cafe.py, trade_table.py  interiores (lanchonete e casa: atendente, Rebeca, assentos, TV) e a mesa de troca
+    cafe.py, trade_table.py  interiores (lanchonete: atendente, assentos, TVs) e a mesa de troca
+    home.py                  a casa: cama, banho, dormir, estante, closet e a Rebeca (conversa, seguir, carinho)
+    town.py                  os NPCs na tela: andando, balões, "!" e o desafio quando um duelista vem até você
+    daynight.py, fishing.py  a cor do dia/noite, postes, relógio na tela e o dormir; a pescaria
     closet.py                closet da suíte: trocar de roupa (a tela de criação só com as roupas)
     online.py                tela JOGAR: hospedar ou entrar no mundo, login e criação de conta
     duel.py                  duelo online contra outro jogador (a batalha, com o oponente vindo da rede)

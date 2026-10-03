@@ -59,6 +59,52 @@ game-architecture, game-ai, game-ui-pygame, game-testing, game-design, game-debu
   `scenes/trade_table.py`.
 - **Casa do jogador** (mapas `casa_terreo` e `casa_superior`, porta "home" na vila): `MapDef.private` = cada jogador
   tem a sua (a rede usa `LobbyScene.map_key` = "casa_terreo@NOME"). A planta é a grade (`#` parede, `_` madeira,
+  `t` azulejo, `c` carpete, `s` escada) e `graphics/house.py` desenha chão e paredes a partir dela. Escada = warps
+  no último degrau. Móveis em `house.FURNITURE`; `house.FROM_CHARACTER` desenha a partir do personagem (troféus).
+  Sofá visto de costas usa `ObjectDef.seat_row=0`. Comportamento em `scenes/home.py` (mixin `HomeMixin`): usos
+  "closet", "bed" (deitar), "shower" (banho), "trophies". Poses dos personagens: `Actor.pose` = stand/sit/lie/shower;
+  deitado/no banho a cena dá `anchor`/`depth` (`house.BEDS`, `house.SHOWER`) e desenha a frente por cima
+  (`draw_pose_front`: assento, edredom ou vidro). Cabelo `cacheado` = `wardrobe._curly`; `shorts` = `Mold.thigh`.
+- **Rebeca** (companheira, `Character.spouse = "rebeca"`; só a conta do usuário tem): dados e ROTINA em
+  `data/companion.py` (atividades com mapa, tile, duração, balão, assento/pose, NPC que responde, `then`); regras em
+  `core/companion.py` (`Nav`: caminho dentro do mapa e entre mapas por warps e portas de `world.DOOR_TARGETS`;
+  `Companion.tick`: rotina, "follow", "sleep", `hold`). A cena alimenta um `RemotePlayer` com o estado dela.
+  Atividade nova = entrada em `REBECA_ACTIVITIES` (`tests/test_companion.py` confere caminhos). Online: mensagem
+  `companion` (protocolo v6), os outros a veem só em mapa público.
+- **Vida dos NPCs** (`core/townsfolk.py`, `NpcWorld`): TODOS os treinadores e ajudantes de mapas públicos passeiam
+  (passeio perto de casa, ir para casa, conversar, duelo de treino, comer na lanchonete) e um duelista às vezes vai
+  até um jogador e desafia (chance + `APPROACH_COOLDOWN` por NPC + `PLAYER_COOLDOWN` por jogador). Mapa novo funciona
+  sem configurar nada; `Spot.roams=False` deixa um NPC parado (a Lu). Caminhos em `core/nav.py` (`Nav(private=False)`
+  para NPCs). Quem roda: sozinho, o lobby (`scenes/town.py`, `TownMixin`); online, o SERVIDOR (thread `_npc_loop`,
+  mensagens `npc`, `npc_say`, `npc_challenge`, `npc_hold`; `welcome` traz `npcs`; protocolo v7). Os NPCs de todos
+  os mapas existem sempre em `LobbyScene.npc_actors` (`NPC` anda pela fila de passos, como `RemotePlayer`);
+  `lobby.npcs` = os do mapa atual. Falar com um NPC chama `talk_npc` (segura ele parado). Nos testes que precisam do
+  NPC num lugar, mova o NPC no mundo (`npc_world.folk`) e no desenho (`npc_actors`).
+- **Dia e noite** (`core/clock.py`, `WorldClock`; 1 min do jogo = 1 s real): sozinho, o relógio vai no save
+  (`Character.world_day/world_minutes`); online, o SERVIDOR manda (anda no `_npc_loop`, `welcome` traz `clock`,
+  mensagem `clock` a cada 10 s, guardado no banco em `meta`). Cena em `scenes/daynight.py` (`DayNightMixin`: camada
+  `tint`, mais fraca em interiores; brilho dos postes; relógio na tela). Dormir: deitado à noite = dormindo; sozinho
+  a noite passa na hora (`start_sleep(skip=True)`); online o cliente manda `bed` e o servidor só pula para as 06:00
+  quando TODOS os jogadores estão deitados (`clock` com `slept`). À noite os NPCs vão para casa (`tick(night=True)`).
+- **Pescaria** (`core/fishing.py` + `scenes/fishing.py`): A de frente para a água (qualquer `W`); o lago fica no
+  leste da vila (`world.LAKE_CENTER`, píer em `PIER_X`). Cada peixe vira BETS na hora (`Character.fish_caught`).
+- **Vila** tem 88 x 44 tiles; obras sem uso ainda (`stable_site`, `mall_site`) são construções com tapume e porta
+  "locked:". Conversa de NPC só aparece de perto (`lobby.NEAR_TALK`); de longe vira "...".
+- **Fome** (`core/hunger.py`, `Character.hunger` 0-100): cai com o tempo no lobby e `BATTLE_COST` por batalha;
+  comer (`core/food.buy`) só abaixo de `FULL`; abaixo de `WEAK` o lobby recusa duelos (`LobbyScene.hungry_check`) e
+  não há encontros no mato. Barra em `LobbyScene.draw_hunger` e linha FOME na ficha.
+- **Dados do mundo** (mapa, NPCs, falas) ficam em `game/data/world.py`; `lobby.py` só tem comportamento.
+- **Lanchonete** (mapa `lanchonete`, porta "cafe" na vila): interior = `MapDef.interior` + chão/paredes por código
+  em `graphics/interiors.py` (`GROUNDS`), móveis em `interiors.FURNITURE` (entram em `lobby.BUILDERS`). Objetos
+  com `Placed.action` "seat:<direção>" são assentos (`MapDef.seats`, sentar = `Actor.sitting`, desenho cortado
+  na cintura + frente do assento por cima) e "use:<coisa>" fazem algo (`MapDef.uses`: "tv", "swap"). Balcão
+  (`ObjectDef.counter`) deixa falar com quem está atrás. Comportamento em `scenes/cafe.py` (mixin `CafeMixin`
+  do LobbyScene). Lanches: `data/food.py` + `core/food.py`; `Character.snack` é gasto no começo da próxima
+  batalha (`BattleScene.take_snacks`/`eat_snacks`; no PvP não vale). Mesa de troca entre jogadores: mensagens
+  `swap_*` que o servidor só repassa (`RELAY_MESSAGES`), regras em `economy.can_swap`/`swap_card`, tela
+  `scenes/trade_table.py`.
+- **Casa do jogador** (mapas `casa_terreo` e `casa_superior`, porta "home" na vila): `MapDef.private` = cada jogador
+  tem a sua (a rede usa `LobbyScene.map_key` = "casa_terreo@NOME"). A planta é a grade (`#` parede, `_` madeira,
   `t` azulejo, `c` carpete, `s` escada) e `graphics/house.py` desenha chão e paredes a partir dela (parede com piso
   embaixo mostra a frente, com a cor do cômodo). Escada = warps no último degrau. Móveis em `house.FURNITURE`;
   `house.FROM_CHARACTER` desenha a partir do personagem (estante de troféus). Sofá visto de costas usa

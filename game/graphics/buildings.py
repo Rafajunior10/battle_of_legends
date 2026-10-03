@@ -244,6 +244,86 @@ def _cup(s, x, y):
     pygame.draw.line(s, (214, 58, 52), (x + 4, y + 2), (x + 6, y - 2))
 
 
+def _fence_board(s, y, width, label):
+    """Tapume da obra com faixas amarelas e a placa com o nome."""
+    board = pygame.Rect(0, y, width, 16)
+    pygame.draw.rect(s, OUTLINE, board)
+    pygame.draw.rect(s, (222, 222, 226), board.inflate(-2, -2))
+    for i in range(0, width, 10):
+        pygame.draw.polygon(s, (240, 180, 40), [(i, board.bottom - 2), (i + 5, board.y + 2),
+                                                 (i + 9, board.y + 2), (i + 4, board.bottom - 2)])
+    plaque(s, width // 2, board.y + 3, label)
+
+
+def _cones(s, width, height):
+    for cx in (4, width - 10):
+        pygame.draw.polygon(s, OUTLINE, [(cx, height), (cx + 3, height - 9), (cx + 6, height)])
+        pygame.draw.polygon(s, (236, 110, 40), [(cx + 1, height - 1), (cx + 3, height - 7), (cx + 5, height - 1)])
+        pygame.draw.line(s, (250, 250, 250), (cx + 2, height - 4), (cx + 4, height - 4))
+
+
+def stable_site(label="ESTÁBULO", w=8, h=6):
+    """Estábulo em obras: estrutura de madeira, meia parede vermelha, vigas do telhado sem telhas, feno e tábuas."""
+    s = pygame.Surface((w * 16, h * 16), pygame.SRCALPHA)
+    width, height = w * 16, h * 16
+    red = ((150, 40, 36), (196, 64, 52), (226, 104, 84))
+    pygame.draw.rect(s, OUTLINE, (6, 40, width - 12, height - 58))           # meia parede (só a parte de baixo)
+    pygame.draw.rect(s, red[1], (7, 41, width - 14, height - 60))
+    for x in range(10, width - 10, 6):
+        pygame.draw.line(s, red[0], (x, 42), (x, height - 20))
+    peak = (width // 2, 6)
+    for x in (6, width // 4, width // 2, 3 * width // 4, width - 7):         # postes e vigas do telhado
+        pygame.draw.rect(s, OUTLINE, (x - 2, 24, 5, height - 40))
+        pygame.draw.rect(s, WOOD[1], (x - 1, 25, 3, height - 42))
+    for side in (6, width - 7):
+        pygame.draw.line(s, OUTLINE, (side, 25), peak, 4)
+        pygame.draw.line(s, WOOD[2], (side, 25), peak, 2)
+    for x in range(14, width - 12, 14):                                       # caibros soltos
+        top = 6 + abs(x - width // 2) * 19 // (width // 2)
+        pygame.draw.line(s, WOOD[0], (x, top), (x, 26), 2)
+    for bx in (14, 30):                                                       # fardos de feno
+        pygame.draw.rect(s, OUTLINE, (bx, height - 30, 14, 10), border_radius=2)
+        pygame.draw.rect(s, (232, 196, 90), (bx + 1, height - 29, 12, 8), border_radius=2)
+        pygame.draw.line(s, (180, 140, 50), (bx + 2, height - 26), (bx + 11, height - 26))
+    for i in range(3):                                                        # pilha de tábuas
+        pygame.draw.rect(s, OUTLINE, (width - 40, height - 24 - i * 4, 26, 4))
+        pygame.draw.rect(s, WOOD[2], (width - 39, height - 23 - i * 4, 24, 2))
+    _fence_board(s, height - 18, width, label + " - EM OBRAS")
+    _cones(s, width, height)
+    return s
+
+
+def mall_site(label="SHOPPING", w=9, h=6):
+    """Shopping em obras: esqueleto de concreto com lajes, andaime, guindaste e tapume."""
+    s = pygame.Surface((w * 16, h * 16), pygame.SRCALPHA)
+    width, height = w * 16, h * 16
+    concrete = ((120, 122, 130), (168, 170, 176), (206, 208, 212))
+    for fy in (14, 34, 54):                                                   # lajes
+        pygame.draw.rect(s, OUTLINE, (8, fy, width - 16, 5))
+        pygame.draw.rect(s, concrete[1], (9, fy + 1, width - 18, 3))
+        pygame.draw.line(s, concrete[2], (9, fy + 1), (width - 10, fy + 1))
+    for px in range(10, width - 8, 24):                                       # pilares
+        pygame.draw.rect(s, OUTLINE, (px - 1, 14, 8, height - 30))
+        pygame.draw.rect(s, concrete[0], (px, 15, 6, height - 32))
+        pygame.draw.line(s, concrete[2], (px, 15), (px, height - 18))
+    for gx in range(14, width - 14, 24):                                      # vidros de algumas lojas já no lugar
+        pygame.draw.rect(s, (110, 170, 210), (gx + 4, 40, 12, 12))
+        pygame.draw.line(s, (220, 240, 250), (gx + 5, 50), (gx + 14, 41))
+    orange = ((176, 86, 30), (236, 136, 52))
+    for sx in (3, width - 5):                                                 # andaime
+        pygame.draw.line(s, orange[0], (sx, 10), (sx, height - 18), 2)
+    for sy in range(18, height - 18, 12):
+        pygame.draw.line(s, orange[1], (3, sy), (14, sy))
+        pygame.draw.line(s, orange[1], (width - 15, sy), (width - 4, sy))
+    pygame.draw.line(s, OUTLINE, (width - 30, 0), (width - 30, 14), 3)       # guindaste
+    pygame.draw.line(s, (240, 190, 40), (width - 62, 2), (width - 18, 2), 3)
+    pygame.draw.line(s, OUTLINE, (width - 50, 3), (width - 50, 11))
+    pygame.draw.rect(s, concrete[0], (width - 53, 11, 7, 4))
+    _fence_board(s, height - 18, width, label + " - EM OBRAS")
+    _cones(s, width, height)
+    return s
+
+
 def street_lamp():
     """Poste de luz moderno (1 x 2 tiles)."""
     s = pygame.Surface((16, 32), pygame.SRCALPHA)

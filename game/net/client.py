@@ -31,6 +31,8 @@ class WorldClient:
         self.send_lock = threading.Lock()
         self.server: WorldServer | None = None   # só existe em quem hospeda
         self.initial_players: list[dict] = []    # quem já estava no mundo quando você entrou
+        self.initial_npcs: list[dict] = []       # onde cada NPC estava (a vida dos NPCs roda no servidor)
+        self.initial_clock: dict | None = None   # dia e hora do mundo (o servidor manda no relógio)
 
     @property
     def connected(self) -> bool:
@@ -74,6 +76,8 @@ class WorldClient:
         welcome = self._request(dict(hello, t="hello"), ("welcome",))
         self.id = welcome["id"]
         self.initial_players = list(welcome.get("players", []))
+        self.initial_npcs = list(welcome.get("npcs", []))
+        self.initial_clock = welcome.get("clock")
         self.sock.settimeout(None)
         threading.Thread(target=self._read_loop, name="world-reader", daemon=True).start()
         return self.initial_players

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 import pygame
 
+from game.core import hunger
 from game.data.character import deck_archetype
 from game.data.legends import LEGENDS
 from game.data.opponents import TRAINERS
@@ -189,8 +190,8 @@ def draw_profile(surf, ch, portrait, time: float = 0.0):
     surf.blit(figure, (ox + 56 - figure.get_width() // 2, oy + 140 - figure.get_height() + bob))
     rows = [
         ("NOME", ch.name),
-        ("NÍVEL", str(ch.level)),
-        ("XP", f"{ch.xp}/{ch.xp_next}"),
+        ("NÍVEL", f"{ch.level}   XP {ch.xp}/{ch.xp_next}"),
+        ("FOME", f"{ch.hunger}/{hunger.MAX_HUNGER} {hunger.label(ch)}"),
         ("LEGEND", LEGENDS[ch.legend].name),
         ("BETS", str(ch.bets)),
         ("XP BATALHA", str(ch.battle_xp)),

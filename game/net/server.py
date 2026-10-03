@@ -15,12 +15,19 @@ import contextlib
 import random
 import socket
 import threading
+import time
 from dataclasses import dataclass
 
+from game.core.clock import WorldClock
+from game.core.townsfolk import NpcWorld
 from game.net.database import AccountError, Database
 from game.net.protocol import MAX_PLAYERS, VERSION, LineReader, encode
 
-STATE_KEYS = ("name", "look", "map", "x", "y", "facing", "battle", "sit")   # o que o servidor guarda de cada um
+STATE_KEYS = ("name", "look", "map", "x", "y", "facing", "battle", "sit", "companion")   # o que o servidor guarda
+COMPANION_KEYS = ("map", "x", "y", "facing", "pose", "name", "look")     # a companheira (Rebeca) de alguém
+NPC_TICK = 0.1                 # a vida dos NPCs anda 10 vezes por segundo
+CLOCK_BROADCAST = 10.0         # a cada 10 s todos recebem a hora certa
+CLOCK_SAVE = 60.0              # e a cada 1 min a hora vai para o banco
 DUEL_MESSAGES = {"challenge": "_challenge", "answer": "_answer", "duel": "_duel_action", "duel_over": "_duel_over"}
 RELAY_MESSAGES = {"swap_ask", "swap_cards", "swap_offer", "swap_answer"}   # mesa de troca: só repassa
 WRONG_VERSION = "Versão do jogo diferente: os dois precisam da mesma versão (baixe a última)."
@@ -44,6 +51,10 @@ class WorldServer:
         self.accounts_online: set[int] = set()
         self.challenges: dict[int, tuple[int, dict]] = {}   # quem desafiou -> (desafiado, ficha de duelo)
         self.duels: dict[int, int] = {}                      # jogador -> oponente (os dois lados)
+        self.npc_world = NpcWorld()                          # os NPCs: o servidor decide, todos veem igual
+        self.npc_lock = threading.Lock()
+        self.clock = WorldClock.from_dict(self.db.get_meta("clock") or {})   # o mesmo dia/hora para todos
+        self.clock_send_t, self.clock_save_t = 0.0, 0.0
         self.lock = threading.Lock()
         self.next_id = 1
         self.sock: socket.socket | None = None
@@ -59,6 +70,7 @@ class WorldServer:
         self.port = sock.getsockname()[1]
         self.running = True
         threading.Thread(target=self._accept_loop, name="world-server", daemon=True).start()
+        threading.Thread(target=self._npc_loop, name="world-npcs", daemon=True).start()
 
     def stop(self) -> None:
         self.running = False
@@ -74,6 +86,7 @@ class WorldServer:
             self.accounts_online.clear()
             self.challenges.clear()
             self.duels.clear()
+        self.db.set_meta("clock", self.clock.to_dict())
         self.db.close()
 
     # ------------------------------------------------------------ conexões
@@ -117,6 +130,10 @@ class WorldServer:
             getattr(self, DUEL_MESSAGES[kind])(session.player_id, message)
         elif kind in RELAY_MESSAGES:
             self._relay(session.player_id, message)
+        elif kind == "npc_hold":
+            with self.npc_lock:
+                self.npc_world.hold(message.get("id"), min(120.0, float(message.get("seconds") or 0)),
+                                    message.get("face"))
         else:
             self._handle(session.player_id, message)
         return True
@@ -167,9 +184,13 @@ class WorldServer:
             state["battle"] = False
             others = [dict(p, id=pid) for pid, p in self.players.items()]
             self.players[player_id] = state
+        with self.npc_lock:
+            npcs = self.npc_world.snapshot()
+        with self.lock:
             self.conns[player_id] = conn
         session.player_id = player_id
-        self._send(conn, {"t": "welcome", "id": player_id, "players": others})
+        self._send(conn, {"t": "welcome", "id": player_id, "players": others, "npcs": npcs,
+                          "clock": self.clock.to_dict()})
         self._broadcast({"t": "join", "player": dict(state, id=player_id)}, exclude=player_id)
         return True
 
@@ -188,6 +209,12 @@ class WorldServer:
                        "facing": state["facing"], "run": bool(message.get("run")), "sit": state["sit"]}
             elif kind == "emote":
                 out = {"t": "emote", "id": player_id, "text": str(message.get("text", ""))[:40]}
+            elif kind == "companion":
+                state["companion"] = {k: message.get(k) for k in COMPANION_KEYS}
+                out = dict(state["companion"], t="companion", id=player_id)
+            elif kind == "bed":
+                state["bed"] = bool(message.get("lying"))
+                return                                    # só o servidor precisa saber
             elif kind == "look" and isinstance(message.get("look"), dict):
                 state["look"] = message["look"]
                 out = {"t": "look", "id": player_id, "look": state["look"]}
@@ -197,6 +224,61 @@ class WorldServer:
             else:
                 return                                    # mensagem desconhecida: ignora
         self._broadcast(out, exclude=player_id)
+
+    # ------------------------------------------------------------ vida dos NPCs (core/townsfolk.py)
+    def _npc_loop(self) -> None:
+        last = time.monotonic()
+        while self.running:
+            time.sleep(NPC_TICK)
+            now = time.monotonic()
+            dt, last = min(0.5, now - last), now
+            with self.lock:
+                players = self._npc_players()
+            with self.npc_lock:
+                self.clock.advance(dt)
+                events = self.npc_world.tick(dt, players, night=self.clock.is_night)
+            for event in events:
+                self._npc_event(event)
+            self._tick_clock(dt)
+
+    def _tick_clock(self, dt) -> None:
+        """Acerta o relógio de todos e pula a noite quando TODOS os jogadores estão deitados."""
+        with self.lock:
+            beds = [bool(st.get("bed")) for st in self.players.values()]
+        slept = bool(beds) and all(beds) and self.clock.is_night
+        if slept:
+            self.clock.sleep_until_morning()
+            with self.lock:
+                for st in self.players.values():
+                    st["bed"] = False
+        self.clock_send_t += dt
+        self.clock_save_t += dt
+        if slept or self.clock_send_t >= CLOCK_BROADCAST:
+            self.clock_send_t = 0.0
+            self._broadcast(dict(self.clock.to_dict(), t="clock", slept=slept))
+        if slept or self.clock_save_t >= CLOCK_SAVE:
+            self.clock_save_t = 0.0
+            self.db.set_meta("clock", self.clock.to_dict())
+
+    def _npc_players(self) -> list[dict]:
+        """Onde está cada jogador (e a companheira dele, que é só obstáculo). Chamar com o lock."""
+        out = []
+        for pid, st in self.players.items():
+            if isinstance(st.get("x"), int) and isinstance(st.get("y"), int) and st.get("map"):
+                out.append({"id": pid, "map": st["map"], "x": st["x"], "y": st["y"], "busy": bool(st.get("battle"))})
+            comp = st.get("companion") or {}
+            if comp.get("map") and isinstance(comp.get("x"), int) and isinstance(comp.get("y"), int):
+                out.append({"id": f"c{pid}", "map": comp["map"], "x": comp["x"], "y": comp["y"], "target": False})
+        return out
+
+    def _npc_event(self, event) -> None:
+        kind, npc_id = event[0], event[1]
+        if kind == "move":
+            self._broadcast(dict(event[2], t="npc", id=npc_id))
+        elif kind == "say":
+            self._broadcast({"t": "npc_say", "id": npc_id, "text": event[2]})
+        elif kind == "challenge":
+            self._send_to(event[2], {"t": "npc_challenge", "id": npc_id})
 
     # ------------------------------------------------------------ mesa de troca
     def _relay(self, player_id: int, message: dict) -> None:

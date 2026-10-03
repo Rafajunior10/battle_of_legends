@@ -1,8 +1,5 @@
-"""Interiores: a Lanchonete da Vila Carta e a sua casa. Mixin do LobbyScene (como o BattleHUD da batalha).
-
-Casa: REBECA (sua esposa) conversa; a cama salva o jogo; a estante mostra os troféus; o closet troca a roupa
-(scenes/closet.py). A TV e os assentos funcionam igual aos da lanchonete.
-
+"""Interiores: a Lanchonete da Vila Carta, e o que serve para qualquer interior (assentos e TVs).
+Mixin do LobbyScene (como o BattleHUD da batalha). O que é só da casa fica em scenes/home.py.
 
 - Atendente LU: vende lanches (regras em core/food.py). O lanche dá PV a mais na próxima batalha.
 - Assentos (cadeiras e puffs): A de frente para um assento senta; qualquer direção levanta.
@@ -16,13 +13,13 @@ from game.core.economy import ShopError
 from game.data.cards import CARDS
 from game.data.food import MENU
 from game.data.props import OBJECTS
-from game.data.world import CAFE, CAFE_SPOT, DIR_VECTORS, GABI_TIPS, REBECA_LINES, TV_SHOWS
+from game.data.world import CAFE, CAFE_SPOT, DIR_VECTORS, GABI_TIPS, TV_SHOWS
 from game.engine import sfx
 from game.engine.settings import TILE
 from game.graphics import house, interiors
 
 TV_SWITCH = 6.0                     # segundos em cada canal
-TV_SCREENS = {"tv": interiors.TV_SCREEN, "tv_small": house.TV_SMALL_SCREEN}
+TV_SCREENS = {"tv": interiors.TV_SCREEN, "tv_small": house.TV_SMALL_SCREEN, "tv_big": house.TV_BIG_SCREEN}
 # linhas de baixo do assento desenhadas na frente de quem senta (pelo nome do objeto ou pelo começo dele)
 SEAT_FRONT = {"puff": 7, "chair": 10, "stool": 6, "dchair_d": 8, "dchair_u": 11, "dchair_r": 10, "dchair_l": 10}
 LOOK_AHEAD = 6                      # sentado, A "enxerga" até este tanto de tiles à frente (a TV do puff)
@@ -71,7 +68,7 @@ class CafeMixin:
             probe = (probe[0] + dx, probe[1] + dy)
         npc = next((n for n in self.npcs if (n.tx, n.ty) == probe), None) if probe != target else None
         if npc:
-            npc.on_talk()
+            self.talk_npc(npc)
             return True
         uses = self.map_def.uses
         if self.player.sitting:                               # sentado: olha mais longe (a TV vista do puff)
@@ -79,8 +76,10 @@ class CafeMixin:
                      for i in range(1, LOOK_AHEAD + 1) for side in (0, -1, 1)]
             target = next((tile for tile in ahead if tile in uses), target)
         if target in uses:
-            {"tv": self.watch_tv, "swap": self.open_swap, "closet": self.open_closet, "bed": self.rest,
-             "trophies": self.show_trophies}[uses[target]]()
+            handlers = {"tv": self.watch_tv, "swap": self.open_swap, "closet": self.open_closet,
+                        "trophies": self.show_trophies, "bed": lambda: self.lie_down(target),
+                        "shower": lambda: self.take_shower(target)}
+            handlers[uses[target]]()
             return True
         if target in self.map_def.seats and not self.player.sitting:
             self.sit(target)
@@ -88,7 +87,10 @@ class CafeMixin:
         return False
 
     def sit(self, tile):
-        taken = any((a.tx, a.ty) == tile for a in (*self.npcs, *self.remotes_here()))
+        people = [*self.npcs, *self.remotes_here(), *self.companions_here()]
+        if self.spouse_here:
+            people.append(self.spouse_actor)
+        taken = any((a.tx, a.ty) == tile for a in people)
         if taken:
             self.say("Esse lugar já está ocupado.")
             return
@@ -100,8 +102,13 @@ class CafeMixin:
         self.send_position()
 
     def stand_up(self, direction):
+        """Levanta (do assento, da cama ou do banho) e volta para o tile de onde veio."""
+        if self.player.pose == "lie":
+            self.send_bed(False)
         self.player.place(*self.seated_from)
-        self.player.sitting = False
+        self.player.pose = "stand"
+        self.player.anchor = self.player.depth = None
+        self.shower_t = None
         self.seated_from = None
         self.player.facing = direction
         self.send_position()
@@ -134,32 +141,6 @@ class CafeMixin:
             self.net.send({"t": "emote", "text": item.bite})
         self.say([f"LU: Aqui está: {item.name}. Bom apetite!",
                   f"Delícia! Na próxima batalha você começa com +{item.hp} PV."], face=face)
-
-    # ------------------------------------------------------------ casa
-    def talk_rebeca(self):
-        line = REBECA_LINES[self.rebeca_line % len(REBECA_LINES)]
-        self.rebeca_line += 1
-        self.say(line.format(name=self.ch.name.upper()), face=self.face_of("rebeca"))
-
-    def rest(self):
-        self.ch.save()
-        sfx.play("save")
-        self.say(["Você deitou um pouquinho e descansou.", "Jogo salvo!"])
-
-    def show_trophies(self):
-        wins = self.ch.coliseum_wins
-        lines = [f"ESTANTE: {wins} troféu{'s' if wins != 1 else ''} de campeão do Coliseu." if wins
-                 else "ESTANTE: ainda vazia. Vença o torneio do Coliseu para ganhar o primeiro troféu!"]
-        medals = [name for who, name in (("rafa", "RAFA"), ("lia", "Mestra LIA"), ("zeca", "Grão-Mestre ZECA"))
-                  if who in self.ch.beaten]
-        if medals:
-            lines.append("Medalhas penduradas: " + ", ".join(medals) + ".")
-        self.say(lines)
-
-    def open_closet(self):
-        from game.scenes.closet import ClosetScene
-        sfx.play("confirm")
-        self.game.transition_to(lambda: ClosetScene(self.game, self))
 
     def talk_gabi(self):
         self.say(GABI_TIPS[self.gabi_tip % len(GABI_TIPS)], face=self.face_of("gabi"))

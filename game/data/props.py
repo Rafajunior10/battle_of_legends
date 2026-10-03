@@ -54,6 +54,8 @@ OBJECTS = {
     "card_shop": ObjectDef("", 0, 0, 6, 4, 2, door=(3, 3)),
     "arena": ObjectDef("", 0, 0, 7, 5, 3, door=(3, 4)),
     "snack_bar": ObjectDef("", 0, 0, 6, 5, 3, door=(3, 4)),
+    "stable_site": ObjectDef("", 0, 0, 8, 6, 3, door=(3, 5)),        # obras: a "porta" é o tapume
+    "mall_site": ObjectDef("", 0, 0, 9, 6, 3, door=(4, 5)),
     "lamp": ObjectDef("", 0, 0, 1, 2, 1),
     # ---- móveis da lanchonete (interiors.py)
     "counter": ObjectDef("", 0, 0, 10, 2, 2, counter=True),
@@ -89,7 +91,8 @@ OBJECTS = {
     "bath_sink": ObjectDef("", 0, 0, 1, 2, 1),
     "closet": ObjectDef("", 0, 0, 3, 3, 1),
     "nightstand": ObjectDef("", 0, 0, 1, 2, 1),
-    "bed_double": ObjectDef("", 0, 0, 3, 3, 2),
+    "bed_double": ObjectDef("", 0, 0, 4, 3, 3),            # cabeceira embaixo: de frente para a TV
+    "tv_big": ObjectDef("", 0, 0, 6, 2, 0),
     "bed_single": ObjectDef("", 0, 0, 2, 3, 2),
     "tv_small": ObjectDef("", 0, 0, 2, 2, 0),
     "dresser": ObjectDef("", 0, 0, 2, 2, 1),

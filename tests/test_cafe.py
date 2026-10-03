@@ -68,17 +68,20 @@ def in_cafe(lobby):
 
 
 # ------------------------------------------------------------ regras
-def test_comprar_lanche_cobra_e_guarda_para_a_proxima_batalha(hero):
-    hero.bets = 30
+def test_comprar_lanche_mata_a_fome_e_guarda_o_bonus(hero):
+    hero.bets, hero.hunger = 40, 30
     item = food.buy(hero, "xburguer")
-    assert (hero.bets, hero.snack, item.hp) == (5, "xburguer", 12)
-    with pytest.raises(ShopError, match="barriga cheia"):
-        food.buy(hero, "maca")                                 # um lanche por vez
-    hero.snack = ""
+    assert (hero.bets, hero.snack, item.hp, hero.hunger) == (15, "xburguer", 12, 70)
+    food.buy(hero, "maca")                                     # ainda cabe: a maçã não troca o bônus maior
+    assert (hero.snack, hero.hunger) == ("xburguer", 82)
     with pytest.raises(ShopError, match="BETS"):
         food.buy(hero, "sorvete")
+    hero.bets = 50
+    food.buy(hero, "sorvete")
+    with pytest.raises(ShopError, match="barriga cheia"):     # 100: não cabe mais nada
+        food.buy(hero, "cafe")
     hero.save()
-    assert Character.load().snack == ""
+    assert (Character.load().hunger, Character.load().snack) == (100, "xburguer")
 
 
 def test_lanche_salvo_volta_e_lanche_invalido_some(hero):
@@ -124,6 +127,7 @@ def test_entrar_e_sair_da_lanchonete(game, lobby):
 
 
 def test_pedir_lanche_para_a_lu_por_cima_do_balcao(game, lobby):
+    game.character.hunger = 40
     in_cafe(lobby)
     face(lobby, 5, 6, "up")                                   # o balcão fica entre você e a LU
     press(lobby, pygame.K_z)

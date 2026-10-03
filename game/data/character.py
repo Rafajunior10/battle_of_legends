@@ -6,6 +6,7 @@ import os
 from collections import Counter
 from dataclasses import asdict, dataclass, field, fields
 
+from game.core.clock import WorldClock
 from game.data.cards import (
     ARCHETYPE_NAMES,
     CARD_LIST,
@@ -20,6 +21,7 @@ from game.data.cards import (
     UTILITY,
     CardDef,
 )
+from game.data.companion import COMPANIONS
 from game.data.food import FOOD
 from game.data.legends import LEGENDS, default_legend
 from game.data.looks import Look
@@ -78,6 +80,11 @@ class Character:
     wins: int = 0
     losses: int = 0
     coliseum_wins: int = 0                        # vezes que foi campeão do torneio do Coliseu
+    hunger: int = 100                             # 0 a 100 (core/hunger.py): abaixo de 20 não duela
+    spouse: str = ""                              # cônjuge que mora na casa (data/companion.py), ex.: "rebeca"
+    fish_caught: int = 0                          # peixes pescados (core/fishing.py)
+    world_day: int = 1                            # relógio do mundo jogando sozinho (core/clock.py)
+    world_minutes: float = 480.0
     snack: str = ""                               # lanche da lanchonete (data/food.py) para a próxima batalha
     beaten: list[str] = field(default_factory=list)   # treinadores já derrotados
     bets: int = START_BETS                        # moeda do jogo
@@ -303,5 +310,10 @@ class Character:
         self.battle_xp = max(0, int(self.battle_xp))
         self.coliseum_wins = max(0, int(self.coliseum_wins))
         self.snack = self.snack if self.snack in FOOD else ""
+        self.hunger = max(0, min(100, int(self.hunger)))
+        self.fish_caught = max(0, int(self.fish_caught))
+        clock = WorldClock.from_dict({"minutes": self.world_minutes, "day": self.world_day})
+        self.world_minutes, self.world_day = clock.minutes, clock.day
+        self.spouse = self.spouse if self.spouse in COMPANIONS else ""
         self.card_levels = {c: max(1, min(MAX_CARD_LEVEL, int(n))) for c, n in dict(self.card_levels).items()
                             if c in CARDS}

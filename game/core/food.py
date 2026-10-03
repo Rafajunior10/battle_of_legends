@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from game.core import hunger
 from game.core.economy import ShopError
 from game.data.food import FOOD, FoodItem
 
@@ -12,15 +13,18 @@ if TYPE_CHECKING:
 
 
 def buy(ch: Character, food_id: str) -> FoodItem:
-    """Compra e come o lanche: ele fica guardado em `ch.snack` até a próxima batalha."""
+    """Compra e come o lanche: mata a fome e o bônus de PV fica em `ch.snack` até a próxima batalha
+    (comendo mais de um, fica o bônus maior)."""
     item = FOOD[food_id]
-    if ch.snack:
-        raise ShopError(f"Você ainda está de barriga cheia ({FOOD[ch.snack].name})! "
-                        "O lanche vale até a próxima batalha.")
+    if not hunger.can_eat(ch):
+        raise ShopError(f"Você está de barriga cheia (fome {ch.hunger}/{hunger.MAX_HUNGER})! "
+                        "Volte quando der fome.")
     if ch.bets < item.price:
         raise ShopError(f"Você precisa de {item.price} BETS.")
     ch.bets -= item.price
-    ch.snack = item.id
+    hunger.eat(ch, item.fill)
+    if not ch.snack or FOOD[ch.snack].hp < item.hp:
+        ch.snack = item.id
     return item
 
 

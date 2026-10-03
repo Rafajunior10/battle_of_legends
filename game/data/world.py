@@ -34,6 +34,7 @@ class Spot:
     y: int
     facing: str
     looks_around: bool = False
+    roams: bool = True              # passeia pelo mundo (core/townsfolk.py); False = nunca sai do lugar (a Lu)
 
 
 @dataclass(frozen=True)
@@ -167,19 +168,24 @@ def _place(g, tile, points):
 
 
 # ============================================================ Vila Carta
-# 64 x 44 tiles. Norte: casas, Loja de Cartas, a Lanchonete e a Arena. Centro: praça com poço e varal.
-# Leste: rio com ponte, sítio cercado e o campo de mato alto. Oeste/sul: casas e o Coliseu.
+# 88 x 44 tiles. Norte: casas, Loja de Cartas, a Lanchonete e a Arena. Centro: praça com poço e varal.
+# Leste: rio com ponte, sítio cercado e o campo de mato alto; depois da ponte, a estrada segue até o estábulo
+# em obras e o LAGO (com píer para pescar). Oeste/sul: casas, o shopping em obras e o Coliseu.
+VILA_W = 88
+LAKE_CENTER, LAKE_RADIUS = (75, 27), (10, 7)
+PIER_X = 74
 VILA_SIGNS = {
     (14, 33): f"COLISEU: torneios de {ROUNDS} rodadas. XP x{XP_MULTIPLIER} e {TOURNAMENT_PRIZE} BETS para o campeão!",
     (39, 37): "CUIDADO! Gosmas selvagens vivem no mato alto.",
+    (73, 17): "LAGO DA VILA: pesque do píer! Aperte A de frente para a água.",
     (33, 39): "AO SUL: BOSQUE SUSSURRO. Gosmas mais fortes e duelistas experientes.",
 }
 
 
 def build_vila() -> list[list[str]]:
-    g, fill = _grid(64, 44)
+    g, fill = _grid(VILA_W, 44)
     fill(".", 30, 42, 2, 2)              # abertura no sul (saída para o bosque)
-    fill("=", 3, 15, 58, 2)              # estrada principal (leste-oeste)
+    fill("=", 3, 15, 80, 2)              # estrada principal (leste-oeste), até o estábulo
     fill("=", 30, 17, 6, 1)              # liga a estrada à praça
     fill("=", 27, 18, 11, 10)            # praça central
     fill("=", 25, 20, 2, 6)
@@ -187,12 +193,20 @@ def build_vila() -> list[list[str]]:
     fill("=", 30, 28, 2, 16)             # estrada para o sul
     fill("=", 9, 34, 21, 1)              # caminho do Coliseu
     fill("=", 7, 14, 1, 1)               # porta de casa
-    fill("=", 13, 14, 1, 1)              # porta do Rafa
     fill("=", 20, 14, 1, 1)              # porta da loja
     fill("=", 26, 11, 2, 4)              # calçada da lanchonete
     fill("=", 36, 14, 1, 1)              # porta da Arena
     fill(WATER, 44, 0, 3, 31)            # rio descendo do norte...
-    fill(WATER, 44, 28, 20, 3)           # ...e virando para o leste
+    fill(WATER, 44, 28, 23, 3)           # ...e virando para o leste, até o lago
+    cx, cy = LAKE_CENTER
+    rx, ry = LAKE_RADIUS
+    for y in range(cy - ry, cy + ry + 1):       # o lago: uma elipse de água
+        for x in range(cx - rx, cx + rx + 1):
+            if ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 0.9:     # 0.9: sem pontinha solta
+                g[y][x] = WATER
+    fill("=", PIER_X, 17, 2, 4)          # caminho da estrada até o píer
+    fill("B", PIER_X, 21, 2, 5)          # píer de madeira entrando no lago
+    fill("=", 67, 14, 1, 1)              # frente do estábulo
     fill("B", 44, 15, 3, 2)              # ponte da estrada principal
     fill("F", 48, 19, 11, 1)             # sítio cercado (porteira em 52, 19)
     fill("F", 48, 26, 11, 1)
@@ -205,16 +219,19 @@ def build_vila() -> list[list[str]]:
     fill("F", 60, 32, 1, 9)
     g[36][40] = "."
     fill(TALL_GRASS, 41, 33, 19, 7)
-    _place(g, "T", ((4, 4), (14, 5), (20, 3), (33, 3), (40, 5), (52, 11), (58, 13), (4, 24), (18, 22),
-                    (22, 30), (16, 38), (4, 38), (38, 29), (24, 39), (50, 34), (36, 41), (57, 23), (12, 27),
-                    (3, 19), (5, 22), (16, 24), (17, 27), (21, 28), (8, 40), (12, 39), (20, 41), (27, 39),
+    _place(g, "T", ((4, 4), (14, 5), (20, 3), (33, 3), (40, 5), (52, 11), (58, 13), (18, 22),
+                    (22, 30), (16, 38), (4, 38), (38, 29), (24, 39), (50, 34), (36, 41), (57, 23),
+                    (3, 19), (16, 24), (17, 27), (21, 28), (8, 40), (12, 39), (20, 41), (27, 39),
                     (37, 38), (48, 3), (56, 4), (60, 9), (49, 13), (61, 12), (42, 3), (11, 7), (3, 9),
                     (22, 8), (31, 8), (41, 20), (40, 26), (34, 30), (26, 31)))
     _place(g, "f", ((9, 9), (10, 9), (23, 18), (24, 27), (41, 25), (20, 25), (13, 20), (14, 20), (36, 9),
                     (51, 9), (5, 30), (26, 36), (34, 31), (10, 13), (10, 12), (16, 13), (16, 12),
                     (19, 9), (20, 9), (38, 8), (39, 8), (52, 9), (53, 9), (42, 23), (43, 25), (27, 33),
                     (28, 37), (13, 31), (14, 31), (35, 33), (54, 16), (55, 18)))
-    _place(g, "R", ((42, 11), (19, 36), (57, 9)))
+    _place(g, "R", ((42, 11), (19, 36), (57, 9), (64, 37)))
+    _place(g, "T", ((66, 3), (72, 5), (79, 4), (84, 8), (83, 12), (75, 9), (62, 22), (63, 33), (68, 38), (77, 37),
+                    (84, 36), (72, 40), (81, 40), (61, 5), (85, 19)))
+    _place(g, "f", ((70, 18), (78, 18), (80, 17), (63, 26), (66, 35), (84, 25), (69, 13), (77, 13)))
     _place(g, "S", VILA_SIGNS)
     return g
 
@@ -225,7 +242,6 @@ VILA = MapDef(
     build=build_vila,
     objects=[
         Placed("house_modern_red", 5, 9, "home", "CASA DE {name}"),
-        Placed("house_modern_blue", 11, 9, "locked:Casa do Rafa. A porta está trancada.", "CASA DO RAFA"),
         Placed("house_modern_green", 5, 3, "locked:Casa da Vó Rosa. Ela foi passear no bosque.", "CASA DA VÓ ROSA"),
         Placed("card_shop", 17, 10, "shop", "LOJA DE CARTAS"),
         Placed("snack_bar", 24, 6, "cafe", "LANCHONETE"),
@@ -233,6 +249,8 @@ VILA = MapDef(
         Placed("house_modern_gray", 50, 3, "locked:Prefeitura da Vila Carta. Fechada hoje.", "PREFEITURA"),
         Placed("house_wood", 54, 11, "locked:Depósito do sítio. Trancado.", "DEPÓSITO"),
         Placed("coliseum", 6, 30, "coliseum"),
+        Placed("mall_site", 4, 21, "locked:Um SHOPPING está sendo construído aqui. Em breve!", "SHOPPING"),
+        Placed("stable_site", 64, 8, "locked:O ESTÁBULO ainda está em obras. Em breve, cavalos!", "ESTÁBULO"),
         Placed("lamp", 11, 17),
         Placed("lamp", 26, 17),
         Placed("lamp", 37, 17),
@@ -254,13 +272,11 @@ VILA = MapDef(
         Placed("scarecrow", 55, 23),
         Placed("crate", 56, 21),
         Placed("bush", 49, 24),
-        Placed("big_rock", 8, 25),
         Placed("stump", 22, 33),
         Placed("sunflower", 53, 25),
         Placed("sunflower", 54, 25),
         Placed("grove", 15, 1),
         Placed("pines", 36, 2),
-        Placed("grove", 2, 26),
         Placed("pines", 18, 39),
         Placed("grove", 57, 1),
         Placed("bush", 5, 17),
@@ -425,10 +441,10 @@ CAFE = MapDef(
     ],
     signs=CAFE_SIGNS,
     helpers={
-        "lu": Helper(Spot(5, 3, "down"),
+        "lu": Helper(Spot(5, 3, "down", roams=False),
                      Look("Feminino", "chanel", "ruivo", 2, top="camisa", shirt="vermelho",
                           bottom="calça", legs="preto", shoes="preto")),
-        "gabi": Helper(Spot(16, 10, "right"),
+        "gabi": Helper(Spot(16, 10, "right", roams=False),
                        Look("Feminino", "longo", "preto", 4, top="top", shirt="amarelo",
                             bottom="saia", legs="jeans", shoes="branco"), sitting=True),
     },
@@ -474,13 +490,14 @@ def build_house_ground() -> list[list[str]]:
 
 
 def build_house_upper() -> list[list[str]]:
-    g = _house_grid(floors=[(CARPET, (1, 3, 11, 7)), (TILE_FLOOR, (13, 3, 6, 7)), (CARPET, (20, 3, 11, 7)),
-                            (TILE_FLOOR, (24, 11, 7, 6)), (STAIRS, (13, 14, 2, 3))],
-                    walls=[(1, 10, 30, 1), (19, 3, 1, 7), (12, 3, 1, 7), (23, 11, 1, 6)])
-    g[10][6] = CARPET                                       # porta da suíte
-    g[10][25] = CARPET                                      # porta do quarto de hóspedes
-    g[7][12] = TILE_FLOOR                                   # porta do banheiro da suíte
-    g[14][23] = TILE_FLOOR                                  # porta do banheiro do corredor
+    """Suíte (com banheiro pequeno no canto), quarto de hóspedes e banheiro do corredor; corredor embaixo."""
+    g = _house_grid(floors=[(CARPET, (1, 3, 17, 7)), (TILE_FLOOR, (14, 3, 4, 4)), (CARPET, (19, 3, 7, 7)),
+                            (TILE_FLOOR, (27, 3, 4, 7)), (STAIRS, (13, 14, 2, 3))],
+                    walls=[(1, 10, 30, 1), (18, 3, 1, 7), (26, 3, 1, 7), (13, 3, 1, 4), (13, 7, 5, 1)])
+    g[10][4] = CARPET                                       # porta da suíte
+    g[10][22] = CARPET                                      # porta do quarto de hóspedes
+    g[10][28] = TILE_FLOOR                                  # porta do banheiro do corredor
+    g[7][15] = TILE_FLOOR                                   # porta do banheiro da suíte
     return g
 
 
@@ -508,7 +525,7 @@ HOUSE_GROUND = MapDef(
         Placed("plant", 1, 15),
         Placed("sideboard", 9, 15),
         # sala de TV
-        Placed("tv", 19, 1, "use:tv"),
+        Placed("tv_big", 18, 1, "use:tv"),
         Placed("tv_rack", 18, 3, "use:tv"),
         Placed("coffee_table", 19, 6),
         Placed("sofa", 18, 8, "seat:up"),
@@ -529,11 +546,6 @@ HOUSE_GROUND = MapDef(
         (27, 12): "PIA DO LAVABO: sabonete de lavanda.",
         (29, 12): "Lavabo limpinho.",
     },
-    helpers={
-        "rebeca": Helper(Spot(8, 5, "down", True),
-                         Look("Feminino", "cacheado", "castanho", 3, top="top", shirt="preto",
-                              bottom="shorts", legs="preto", shoes="branco")),
-    },
     warps=[Warp(HOUSE_EXIT[0], HOUSE_EXIT[1], "vila", HOME_SPOT[0], HOME_SPOT[1], "down"),
            Warp(HOUSE_EXIT[0] + 1, HOUSE_EXIT[1], "vila", HOME_SPOT[0], HOME_SPOT[1], "down"),
            Warp(STAIRS_DOWN_TOP[0], STAIRS_DOWN_TOP[1], "casa_superior", STAIRS_UP_BOTTOM[0], 13, "up"),
@@ -547,53 +559,50 @@ HOUSE_UPPER = MapDef(
     interior="casa_superior",
     private=True,
     objects=[
-        # suíte do casal
+        # suíte do casal: a cama fica no meio, de frente para a TV grande na parede
         Placed("closet", 1, 1, "use:closet"),
-        Placed("nightstand", 4, 2),
-        Placed("bed_double", 5, 2, "use:bed"),
-        Placed("nightstand", 8, 2),
-        Placed("tv_small", 10, 1, "use:tv"),
+        Placed("tv_big", 6, 1, "use:tv"),
+        Placed("bed_double", 7, 5, "use:bed"),
+        Placed("nightstand", 6, 6),
+        Placed("nightstand", 11, 6),
         Placed("dresser", 1, 8),
-        Placed("plant", 11, 8),
-        # banheiro da suíte
-        Placed("toilet", 13, 2),
-        Placed("vanity", 15, 2),
-        Placed("shower", 17, 2),
+        Placed("plant", 12, 8),
+        # banheiro da suíte (pequeno, no canto)
+        Placed("toilet", 14, 2),
+        Placed("bath_sink", 15, 2),
+        Placed("shower", 16, 2, "use:shower"),
         # quarto de hóspedes
-        Placed("bed_single", 21, 2, "use:bed"),
-        Placed("nightstand", 23, 2),
-        Placed("tv_small", 28, 1, "use:tv"),
-        Placed("dresser", 26, 8),
-        Placed("plant", 20, 8),
-        # corredor e banheiro do corredor
+        Placed("bed_single", 20, 2, "use:bed"),
+        Placed("nightstand", 22, 2),
+        Placed("tv_small", 24, 1, "use:tv"),
+        Placed("plant", 25, 8),
+        # banheiro do corredor
+        Placed("toilet", 27, 2),
+        Placed("bath_sink", 28, 2),
+        Placed("bathtub", 27, 7),
+        # corredor
         Placed("plant", 1, 15),
         Placed("plant", 21, 15),
-        Placed("toilet", 25, 10),
-        Placed("bath_sink", 27, 10),
-        Placed("bathtub", 28, 15),
     ],
     signs={
-        (13, 3): "Banheiro da suíte: tudo cheirando a eucalipto.",
-        (15, 3): "PIA DUPLA: uma para você, outra para a Rebeca.",
-        (16, 3): "PIA DUPLA: uma para você, outra para a Rebeca.",
-        (17, 4): "BOX: chuveiro quentinho com vidro temperado.",
-        (18, 4): "BOX: chuveiro quentinho com vidro temperado.",
-        (4, 3): "Criado-mudo com abajur e um livro de estratégias de cartas.",
-        (8, 3): "Criado-mudo com o porta-retrato do casamento.",
-        (23, 3): "Criado-mudo do quarto de hóspedes.",
+        (14, 3): "Banheiro da suíte: tudo cheirando a eucalipto.",
+        (15, 3): "PIA DA SUÍTE: duas escovas de dente, a sua e a da Rebeca.",
+        (6, 7): "Criado-mudo com abajur e um livro de estratégias de cartas.",
+        (11, 7): "Criado-mudo com o porta-retrato do casamento.",
+        (22, 3): "Criado-mudo do quarto de hóspedes.",
         (1, 9): "CÔMODA: meias, toalhas e cartas repetidas.",
         (2, 9): "CÔMODA: meias, toalhas e cartas repetidas.",
-        (26, 9): "CÔMODA de hóspedes: vazia, esperando visita.",
-        (27, 9): "CÔMODA de hóspedes: vazia, esperando visita.",
-        (25, 11): "Banheiro do corredor.",
-        (27, 11): "Pia do banheiro do corredor.",
-        **{(x, y): "BANHEIRA: espuma de morango!" for x in range(28, 31) for y in (15, 16)},
+        (27, 3): "Banheiro do corredor.",
+        (28, 3): "Pia do banheiro do corredor.",
+        **{(x, y): "BANHEIRA: espuma de morango!" for x in range(27, 30) for y in (7, 8)},
     },
     warps=[Warp(STAIRS_UP_BOTTOM[0], STAIRS_UP_BOTTOM[1], "casa_terreo", STAIRS_DOWN_TOP[0], 6, "down"),
            Warp(STAIRS_UP_BOTTOM[0] + 1, STAIRS_UP_BOTTOM[1], "casa_terreo", STAIRS_DOWN_TOP[0] + 1, 6, "down")],
 )
 
 MAPS = {m.id: m for m in (VILA, BOSQUE, CAFE, HOUSE_GROUND, HOUSE_UPPER)}
+# portas que levam a um interior: ação da porta -> (mapa, onde se aparece, para onde olha)
+DOOR_TARGETS = {"home": (HOUSE_GROUND.id, HOUSE_SPOT, "up"), "cafe": (CAFE.id, CAFE_SPOT, "up")}
 
 
 # ============================================================ falas
@@ -672,12 +681,20 @@ TV_SHOWS = [
     "TV: CARTA DO DIA! Lembre: com 4 marcadores de gelo, o oponente congela e perde o turno.",
 ]
 
-# Rebeca, sua esposa (em casa). {name} = seu nome.
-REBECA_LINES = [
-    "REBECA: Oi, amor! Como foram os duelos hoje?",
-    "REBECA: Já viu a estante da sala? Cada troféu do Coliseu vai pra lá. Tô orgulhosa de você!",
-    "REBECA: Lá em cima tem o closet do nosso quarto, se quiser trocar de roupa antes de sair.",
-    "REBECA: Cansou? Deita um pouco lá no quarto. Eu cuido de tudo aqui embaixo.",
-    "REBECA: Traz um X-burguer da lanchonete pra mim depois? Hehe.",
-    "REBECA: {name}, vê se não perde pro Zeca, hein! Eu acredito em você.",
+
+# ============================================================ vida dos NPCs (core/townsfolk.py)
+# Conversa entre dois NPCs: quem puxa o assunto fala a primeira, o outro responde.
+NPC_CHATS = [
+    ("Viu o duelo de ontem no Coliseu?", "Vi! Que final!"),
+    ("Tá treinando o deck novo?", "Todo dia! Só falta uma carta rara."),
+    ("A Lanchonete lançou sorvete novo!", "Vou lá provar depois!"),
+    ("Cuidado com as gosmas do bosque.", "Elas estão bem mais fortes..."),
+    ("Que calor hoje, hein?", "Dia bom pra um refri gelado!"),
+    ("Já viu o Cold jogando?", "O clone de gelo dele é demais!"),
+    ("A Nina tá trocando cartas raras.", "Preciso passar lá!"),
+    ("Bom dia!", "Bom dia! Tudo certo?"),
 ]
+NPC_DUEL = (("Bora um duelo de treino?", "Bora! Prepare-se!"), ("Ganhei! Boa luta!", "Da próxima eu ganho!"))
+NPC_ORDER = "{food}, por favor, Lu!"            # pedindo no balcão da lanchonete
+NPC_ORDER_REPLY = "Saindo já!"
+NPC_EATING = "Nham! Que delícia."

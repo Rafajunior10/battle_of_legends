@@ -1,5 +1,4 @@
 """Personagens que andam no mapa em grade (estilo Pokémon)."""
-import random
 from collections import deque
 
 import pygame
@@ -21,8 +20,30 @@ class Actor:
         self.progress = 0.0
         self.step_time = WALK_TIME
         self.parity = 0
-        self.sitting = False
+        self.pose = "stand"          # stand | sit | lie | shower
+        self.anchor = None           # deitado/no banho: (centro x, topo) em pixels, decidido pela cena
+        self.flip = False            # deitado de cabeça para baixo (cama virada para a TV)
+        self.depth = None            # deitado: a cena manda desenhar depois da cama
+        self.nudge = (0, 0)          # empurrãozinho em pixels (abraço, beijo)
+        self.emote, self.emote_t = None, 0.0     # balão de fala
+        self._upside_down = None
         self.place(tx, ty)
+
+    @property
+    def sitting(self):
+        return self.pose == "sit"
+
+    @sitting.setter
+    def sitting(self, value):
+        self.pose = "sit" if value else "stand"
+
+    def say(self, text, seconds=3.0):
+        self.emote, self.emote_t = text, seconds
+
+    def tick_emote(self, dt):
+        self.emote_t = max(0.0, self.emote_t - dt)
+        if self.emote_t == 0:
+            self.emote = None
 
     def place(self, tx, ty):
         self.tx, self.ty = tx, ty
@@ -67,33 +88,27 @@ class Actor:
             return walk[self.parity * half + min(half - 1, int(self.progress * half))]
         return self.frames[(self.facing, self.frame_index)]
 
+    def lying_image(self):
+        """De frente, parado; de cabeça para baixo se `flip` (girado uma vez só e guardado)."""
+        img = self.frames[("down", 0)]
+        if not self.flip:
+            return img
+        if self._upside_down is None or self._upside_down[0] is not img:
+            self._upside_down = (img, pygame.transform.rotate(img, 180))
+        return self._upside_down[1]
+
     def draw(self, surf, cam):
+        if self.pose in ("lie", "shower") and self.anchor:    # na cama ou no box: a cena diz onde
+            img = self.lying_image()
+            surf.blit(img, (self.anchor[0] - img.get_width() // 2 - cam[0], self.anchor[1] - cam[1]))
+            return
         img = self.image()
-        x = round(self.px) + (TILE - img.get_width()) // 2 - cam[0]
-        y = round(self.py) + FOOT_Y - img.get_height() - cam[1]
+        x = round(self.px) + (TILE - img.get_width()) // 2 - cam[0] + self.nudge[0]
+        y = round(self.py) + FOOT_Y - img.get_height() - cam[1] + self.nudge[1]
         if self.sitting:                 # sentado: mostra só até a cintura, um pouco mais baixo
             surf.blit(img, (x, y + SIT_DROP), pygame.Rect(0, 0, img.get_width(), img.get_height() - SIT_CROP))
             return
         surf.blit(img, (x, y))
-
-
-class NPC(Actor):
-    def __init__(self, npc_id, spot, frames, on_talk, look=None):
-        """frames: quadros de andar (vêm de sprites.character_frames); look: aparência, para o rosto."""
-        super().__init__(spot.x, spot.y, frames, spot.facing)
-        self.id = npc_id
-        self.look = look
-        self.on_talk = on_talk
-        self.looks_around = spot.looks_around
-        self.timer = random.uniform(1.5, 3.5)
-
-    def idle(self, dt):
-        if not self.looks_around:
-            return
-        self.timer -= dt
-        if self.timer <= 0:
-            self.timer = random.uniform(1.5, 4.0)
-            self.facing = random.choice(list(DIR_VECTORS))
 
 
 LAG_LIMIT = 4        # passos acumulados (internet lenta): o boneco pula direto para o último
@@ -109,35 +124,30 @@ class RemotePlayer(Actor):
         self.name = name
         self.map_id = map_id
         self.pending = deque()       # passos que chegaram e ainda não foram andados
-        self.emote = None            # balão de fala atual
-        self.emote_t = 0.0
         self.battle = False
 
-    def queue_move(self, map_id, x, y, facing, run, sit=False):
-        self.pending.append((map_id, x, y, facing, run, sit))
+    def queue_move(self, map_id, x, y, facing, run, pose="stand"):
+        """`pose`: "stand", "sit", "lie" ou "shower" (True/False = sentado ou não, como vem da rede)."""
+        pose = {True: "sit", False: "stand"}.get(pose, pose) if isinstance(pose, bool) else pose
+        self.pending.append((map_id, x, y, facing, run, pose))
         if len(self.pending) > LAG_LIMIT:
             last = self.pending[-1]
             self.pending.clear()
             self.map_id = last[0]
             self.place(last[1], last[2])
             self.facing = last[3]
-            self.sitting = last[5]
-
-    def say(self, text, seconds=3.0):
-        self.emote, self.emote_t = text, seconds
+            self.pose = last[5]
 
     def tick(self, dt):
-        self.emote_t = max(0.0, self.emote_t - dt)
-        if self.emote_t == 0:
-            self.emote = None
+        self.tick_emote(dt)
         self.update(dt)
         if self.moving or not self.pending:
             return
-        map_id, x, y, facing, run, sit = self.pending.popleft()
+        map_id, x, y, facing, run, pose = self.pending.popleft()
         dx, dy = x - self.tx, y - self.ty
         direction = next((d for d, v in DIR_VECTORS.items() if v == (dx, dy)), None)
-        if sit or self.sitting:          # sentar e levantar não têm passo: só reposiciona
-            self.sitting = sit
+        if pose != "stand" or self.pose != "stand":   # sentar, deitar e levantar não têm passo: só reposiciona
+            self.pose = pose
             self.map_id = map_id
             self.place(x, y)
         elif map_id == self.map_id and direction:
@@ -146,3 +156,14 @@ class RemotePlayer(Actor):
             self.map_id = map_id
             self.place(x, y)
         self.facing = facing or self.facing
+
+
+class NPC(RemotePlayer):
+    """Um NPC (treinador ou ajudante). Anda pela mesma fila de passos dos jogadores online: quem decide para onde
+    ele vai é a vida dos NPCs (game/core/townsfolk.py), rodando aqui ou no servidor."""
+
+    def __init__(self, npc_id, name, map_id, spot, frames, on_talk, look=None):
+        """frames: quadros de andar (vêm de sprites.character_frames); look: aparência, para o rosto."""
+        super().__init__(npc_id, name, frames, map_id, spot.x, spot.y, spot.facing)
+        self.look = look
+        self.on_talk = on_talk

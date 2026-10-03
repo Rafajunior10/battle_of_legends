@@ -8,6 +8,9 @@ Mensagens do jogador para o servidor:
     emote   {text}                               balão de fala
     status  {battle}                             entrei ou saí de uma batalha
     look    {look}                               troquei de roupa (closet)
+    companion {map, x, y, facing, pose, name, look}   minha companheira andou (map null = num lugar particular)
+    npc_hold {id, seconds, face}                 estou conversando/duelando com este NPC: segure ele parado
+    bed     {lying}                              deitei/levantei (a noite só passa com todos deitados)
     challenge {to, fighter}                      desafiar o jogador `to` para um duelo (fighter: core/duel.py)
     answer    {to, yes, fighter}                 aceitar (ou não) o desafio de `to`
     duel      {action}                           uma jogada no duelo (vai só para o oponente)
@@ -17,13 +20,16 @@ Mensagens do jogador para o servidor:
 Mensagens do servidor para o jogador:
     account {character}         login ok: o personagem salvo (ou null, conta nova)
     denied  {text}              login/cadastro recusado (pode tentar de novo)
-    welcome {id, players}       seu número no mundo e quem já está lá
+    welcome {id, players, npcs, clock}  seu número, quem já está lá, os NPCs e o dia/hora do mundo
+    clock {minutes, day, slept} a hora certa (slept: todos dormiram e a noite passou)
     join    {player}            alguém entrou        leave {id}   alguém saiu
-    move / emote / status / look  o mesmo de cima, com o "id" de quem fez
+    move / emote / status / look / companion  o mesmo de cima, com o "id" de quem fez
     error   {text}              conexão recusada (versão diferente, servidor cheio...)
     challenge {from, name}      alguém te desafiou    challenge_denied {text}   o desafio não rolou
     duel_start {seed, side, foe}  o duelo começou (semente dos baralhos, seu lado, ficha do oponente)
     duel {action}               jogada do oponente    duel_end {reason}   o oponente saiu (vitória por W.O.)
+    npc {id, map, x, y, facing, pose}   um NPC andou (a vida dos NPCs roda no servidor: core/townsfolk.py)
+    npc_say {id, text}          balão de um NPC       npc_challenge {id}   este NPC veio até você e quer duelar
 Só mensagens pequenas viajam: cada passo vira uma mensagem, e cada computador anima o passo sozinho.
 """
 from __future__ import annotations
@@ -33,7 +39,7 @@ import json
 import socket
 
 PORT = 50550
-VERSION = 5                  # muda quando o formato das mensagens mudar (versões diferentes não se conectam)
+VERSION = 8                  # muda quando o formato das mensagens mudar (versões diferentes não se conectam)
 MAX_LINE = 64 * 1024         # mensagem maior que isso é lixo: a conexão é fechada
 MAX_PLAYERS = 8
 EMOTES = ["Oi!", "Bora duelar?", "Me segue!", "Valeu!", "Kkkkk", "Tchau!"]

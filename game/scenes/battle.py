@@ -11,7 +11,7 @@ from typing import ClassVar
 
 import pygame
 
-from game.core import abilities, food
+from game.core import abilities, food, hunger
 from game.core import events as ev
 from game.core.ai import choose_card, drogoz_discards, mimo_pick
 from game.core.combat import Combatant, end_turn, loser, pay_card, start_turn
@@ -445,6 +445,7 @@ class BattleScene(BattleHUD, Scene):
             self.prize = (bets, xp, ch.gain_xp(xp))
         else:
             ch.losses += 1
+        hunger.after_battle(ch)
         ch.save()
 
     def prize_messages(self):

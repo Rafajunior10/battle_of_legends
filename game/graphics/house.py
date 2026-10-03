@@ -27,6 +27,20 @@ NAVY = ((34, 52, 92), (52, 78, 132), (90, 120, 176))
 FABRIC = ((96, 100, 112), (132, 138, 150), (166, 172, 184))       # sofá cinza
 GOLD = ((168, 120, 30), (236, 188, 60), (255, 236, 150))
 TV_SMALL_SCREEN = pygame.Rect(3, 4, 26, 16)
+TV_BIG_SCREEN = pygame.Rect(4, 3, 88, 25)
+
+
+class BedSpec:
+    """Onde quem deita fica numa cama: `slots` = centro (x) de cada lugar, `top` = topo do boneco, `flip` =
+    deitado de cabeça para baixo (cama virada para a TV) e `cover` = linhas da cama desenhadas POR CIMA de
+    quem está deitado (o edredom)."""
+
+    def __init__(self, slots, top, flip, cover):
+        self.slots, self.top, self.flip, self.cover = slots, top, flip, cover
+
+
+BEDS = {"bed_double": BedSpec((17, 47), 7, True, (0, 26)), "bed_single": BedSpec((16,), 2, False, (28, 48))}
+SHOWER = {"center": 16, "top": 2, "glass": (13, 48)}     # o box: onde fica quem toma banho e o vidro na frente
 
 
 def _is_wall(grid, x, y):
@@ -208,13 +222,12 @@ GUEST_RUG = ((80, 120, 90), (140, 180, 140), (226, 240, 220))
 RUNNER = ((120, 60, 60), (170, 80, 76), (240, 200, 150))
 GROUND_DECOR = [
     (rug, 17, 5, 7, 3, LIVING_RUG), (rug, 1, 10, 9, 6, DINING_RUG),
-    (window, 15, 1), (clock, 17, 1), (painting, 23, 1),
-    (painting, 29, 1, 1, ((90, 160, 120), (240, 240, 230), (40, 90, 70))),
+    (window, 15, 1), (clock, 17, 1), (painting, 29, 1, 1, ((90, 160, 120), (240, 240, 230), (40, 90, 70))),
 ]
 UPPER_DECOR = [
-    (rug, 4, 5, 5, 4, SUITE_RUG), (rug, 21, 5, 4, 3, GUEST_RUG), (rug, 2, 11, 10, 2, RUNNER),
-    (painting, 5, 1, 3), (painting, 9, 1), (window, 25, 1), (painting, 20, 1),
-    (photos, 3, 10), (painting, 16, 10, 2, ((200, 120, 200), (250, 220, 120), (120, 180, 220))), (photos, 20, 10),
+    (rug, 5, 4, 8, 5, SUITE_RUG), (rug, 20, 5, 4, 3, GUEST_RUG), (rug, 2, 11, 10, 2, RUNNER),
+    (painting, 4, 1), (painting, 12, 1), (painting, 23, 1), (window, 29, 1),
+    (photos, 8, 10), (painting, 16, 10, 2, ((200, 120, 200), (250, 220, 120), (120, 180, 220))), (photos, 24, 10),
 ]
 
 
@@ -527,6 +540,37 @@ def bed(w=3, duvet=((60, 90, 150), (90, 124, 190), (140, 170, 220))):
     return s
 
 
+def bed_facing_tv(w=4):
+    """Cama de casal com a CABECEIRA EMBAIXO (quem deita olha para a TV na parede): pé da cama em cima,
+    edredom, travesseiros embaixo e a cabeceira estofada."""
+    s = _surface(w, 3)
+    width = s.get_width()
+    _box(s, (0, 0, width, 6), WALNUT[1], 2)               # pé da cama
+    _box(s, (2, 4, width - 4, 36), (246, 246, 244), 2)    # colchão com lençol
+    _box(s, (2, 4, width - 4, 25), (90, 124, 190), 2)     # edredom
+    pygame.draw.line(s, (140, 170, 220), (4, 26), (width - 5, 26), 2)
+    for x in range(10, width - 6, 14):
+        pygame.draw.line(s, (60, 90, 150), (x, 8), (x + 4, 22))
+    half = (width - 8) // 2
+    for i in range(2):                                    # travesseiros
+        _box(s, (4 + i * (half + 1), 29, half - 1, 9), (252, 252, 250), 3)
+    _box(s, (0, 38, width, 10), (150, 136, 124), 3)       # cabeceira
+    for x in range(6, width - 4, 8):
+        s.set_at((x, 43), (120, 106, 96))
+    return s
+
+
+def tv_big(w=6):
+    """TV grande de parede (6 x 2): tela larga com borda fina e uma barra de som embaixo."""
+    s = _surface(w, 2)
+    width = s.get_width()
+    pygame.draw.rect(s, (24, 24, 30), (1, 1, width - 2, 29), border_radius=2)
+    pygame.draw.rect(s, OUTLINE, (1, 1, width - 2, 29), 1, border_radius=2)
+    pygame.draw.rect(s, (20, 30, 50), TV_BIG_SCREEN)
+    s.set_at((width - 6, 27), (90, 230, 120))
+    return s
+
+
 def tv_small():
     s = _surface(2, 2)
     pygame.draw.rect(s, (24, 24, 30), (1, 2, 30, 20), border_radius=2)
@@ -573,13 +617,19 @@ def shower():
     pygame.draw.rect(s, CHROME[1], (7, 11, 8, 3))
     for x in range(8, 15, 2):
         s.set_at((x, 15), (150, 210, 240))
-    glass = pygame.Surface((30, 33), pygame.SRCALPHA)
-    glass.fill((200, 236, 250, 90))
-    s.blit(glass, (1, 14))
-    pygame.draw.rect(s, CHROME[0], (0, 13, 32, 35), 1)
-    pygame.draw.line(s, (250, 255, 255), (5, 44), (14, 18))
-    pygame.draw.line(s, CHROME[0], (16, 14), (16, 46))
-    pygame.draw.line(s, CHROME[1], (19, 26), (19, 32), 2)    # puxador
+    s.blit(shower_glass(), (0, SHOWER["glass"][0]))
+    return s
+
+
+def shower_glass():
+    """Só o vidro do box (transparente), para desenhar POR CIMA de quem está tomando banho."""
+    top, bottom = SHOWER["glass"]
+    s = pygame.Surface((2 * TILE, bottom - top), pygame.SRCALPHA)
+    s.fill((200, 236, 250, 80), (1, 1, 30, bottom - top - 2))
+    pygame.draw.rect(s, CHROME[0], s.get_rect(), 1)
+    pygame.draw.line(s, (250, 255, 255), (5, 31), (14, 5))
+    pygame.draw.line(s, CHROME[0], (16, 1), (16, 33))
+    pygame.draw.line(s, CHROME[1], (19, 13), (19, 19), 2)    # puxador
     return s
 
 
@@ -612,7 +662,8 @@ FURNITURE = {
     "bath_sink": bath_sink,
     "closet": closet,
     "nightstand": nightstand,
-    "bed_double": lambda: bed(3),
+    "bed_double": bed_facing_tv,
+    "tv_big": tv_big,
     "bed_single": lambda: bed(2, ((60, 120, 80), (90, 160, 110), (150, 200, 160))),
     "tv_small": tv_small,
     "dresser": dresser,

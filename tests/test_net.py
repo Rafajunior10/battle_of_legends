@@ -263,3 +263,16 @@ def test_roupa_nova_chega_nos_outros(server):
     assert next(p for p in others if p["name"] == "BETO")["look"] == {"top": "regata"}   # quem chega já vê
     for client in (ana, beto, carlos):
         client.close()
+
+
+def test_companheira_aparece_para_os_outros(server):
+    ana, _ = join(server.port, "ANA")
+    beto, _ = join(server.port, "BETO")
+    rebeca = {"map": "vila", "x": 3, "y": 4, "facing": "down", "pose": "stand", "name": "REBECA", "look": {}}
+    ana.send(dict(rebeca, t="companion"))
+    message = wait_for(beto, "companion")
+    assert (message["id"], message["name"], message["x"]) == (ana.id, "REBECA", 3)
+    carlos, others = join(server.port, "CARLOS")
+    assert next(p for p in others if p["name"] == "ANA")["companion"]["name"] == "REBECA"   # quem chega já vê
+    for client in (ana, beto, carlos):
+        client.close()

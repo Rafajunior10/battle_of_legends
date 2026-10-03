@@ -10,7 +10,7 @@ from collections import deque
 
 import pygame
 
-from game.core import abilities
+from game.core import abilities, hunger
 from game.core import duel as duel_rules
 from game.core import events as ev
 from game.engine import sfx
@@ -126,6 +126,7 @@ class DuelScene(BattleScene):
             ch.wins += 1
         else:
             ch.losses += 1
+        hunger.after_battle(ch)
         ch.save()
         if self.game.net:
             self.game.net.send({"t": "duel_over"})

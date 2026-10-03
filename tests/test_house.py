@@ -1,14 +1,16 @@
-"""Casa do jogador: entrar e sair, escada entre os andares, Rebeca, estante de troféus, cama, sofá, closet
-(trocar de roupa) e a casa ser particular no online. Também as peças novas: cabelo cacheado e shorts."""
+"""Casa do jogador: entrar e sair, escada, cômodos alcançáveis, estante de troféus, deitar e dormir, banho,
+sofá, TVs grandes, closet (trocar de roupa) e a casa ser particular no online. E as peças novas: cacheado e shorts."""
 import pygame
 import pytest
 
+from game.core.nav import Nav
 from game.data.character import Character
-from game.data.world import HOME_SPOT, HOUSE_GROUND, HOUSE_SPOT, REBECA_LINES
+from game.data.world import HOME_SPOT, HOUSE_GROUND, HOUSE_SPOT
 from game.engine.app import Game
 from game.graphics import house, sprites
 from game.scenes.actors import RemotePlayer
 from game.scenes.closet import ClosetScene
+from game.scenes.home import SHOWER_TIME, SLEEP_TIME
 from game.scenes.lobby import LobbyScene
 
 
@@ -56,6 +58,17 @@ def dialog_text(lobby):
     return " ".join(" ".join(page) for page in lobby.prompt.dialog.pages)
 
 
+def answer(lobby, yes=True):
+    for _ in range(300):
+        if lobby.prompt.choosing:
+            break
+        press(lobby, pygame.K_z)
+        lobby.update(1 / 30)
+    if not yes:
+        press(lobby, pygame.K_DOWN)
+    press(lobby, pygame.K_z)
+
+
 def test_entrar_subir_descer_e_sair_de_casa(game, lobby):
     face(lobby, HOME_SPOT[0], HOME_SPOT[1], "up")
     press(lobby, pygame.K_z)                                  # A na porta de casa
@@ -72,15 +85,20 @@ def test_entrar_subir_descer_e_sair_de_casa(game, lobby):
     assert lobby.map_def.id == "vila" and (lobby.player.tx, lobby.player.ty) == HOME_SPOT
 
 
-def test_rebeca_conversa(lobby):
+def test_todos_os_comodos_de_cima_tem_porta():
+    """Regressão: o quarto de hóspedes não tinha porta para o corredor."""
+    nav = Nav()
+    corridor = (13, 13)
+    for room in ((5, 5), (20, 5), (28, 5), (14, 5)):         # suíte, hóspedes, banheiro do corredor, da suíte
+        assert nav.path("casa_superior", corridor, room) is not None, room
+
+
+def test_tvs_grandes_na_sala_e_no_quarto(lobby):
     lobby.load_map("casa_terreo", HOUSE_SPOT, "up")
-    rebeca = next(n for n in lobby.npcs if n.id == "rebeca")
-    look = rebeca.look
-    assert (look.hair, look.top, look.shirt, look.bottom, look.legs) == ("cacheado", "top", "preto", "shorts", "preto")
-    face(lobby, rebeca.tx, rebeca.ty + 1, "up")
-    press(lobby, pygame.K_z)
-    assert REBECA_LINES[0].format(name="JUNINHO") in dialog_text(lobby)
-    assert lobby.rebeca_line == 1
+    assert [tv[2][0].get_size() for tv in lobby.tvs] == [house.TV_BIG_SCREEN.size]
+    lobby.load_map("casa_superior", (13, 13), "up")
+    sizes = sorted(tv[2][0].get_size() for tv in lobby.tvs)
+    assert house.TV_BIG_SCREEN.size in sizes and len(sizes) == 2
 
 
 def test_estante_mostra_os_trofeus(game, lobby):
@@ -96,12 +114,34 @@ def test_estante_mostra_os_trofeus(game, lobby):
     assert pygame.image.tobytes(empty, "RGBA") != pygame.image.tobytes(full, "RGBA")   # os troféus aparecem
 
 
-def test_deitar_na_cama_salva(game, lobby):
+def test_deitar_na_cama_e_dormir_salva(game, lobby):
     lobby.load_map("casa_superior", (13, 13), "up")
     game.character.bets = 777
-    face(lobby, 6, 5, "up")                                   # pé da cama de casal
+    face(lobby, 6, 5, "up")
+    lobby.player.facing = "right"                             # do lado da cama de casal
     press(lobby, pygame.K_z)
-    assert "salvo" in dialog_text(lobby) and Character.load().bets == 777
+    assert lobby.player.pose == "lie" and (lobby.player.tx, lobby.player.ty) == (7, 6)
+    assert lobby.player.anchor and lobby.player.flip           # deitado de frente para a TV (cabeça embaixo)
+    lobby.draw(game.screen)                                   # deitado desenha, com o edredom por cima
+    press(lobby, pygame.K_z)                                  # A deitado: "Dormir um pouco?"
+    answer(lobby, yes=True)
+    assert lobby.sleep_t is not None
+    for _ in range(int(SLEEP_TIME * 30) + 5):
+        lobby.update(1 / 30)
+        lobby.draw(game.screen)                               # a tela escurece com os Zzz
+    assert lobby.sleep_t is None and lobby.player.pose == "stand" and Character.load().bets == 777
+
+
+def test_tomar_banho(game, lobby):
+    lobby.load_map("casa_superior", (13, 13), "up")
+    face(lobby, 16, 5, "up")
+    press(lobby, pygame.K_z)                                  # A no box
+    assert lobby.player.pose == "shower"
+    lobby.draw(game.screen)                                   # água caindo atrás do vidro
+    for _ in range(int(SHOWER_TIME * 30) + 5):
+        lobby.update(1 / 30)
+    assert lobby.player.pose == "stand" and (lobby.player.tx, lobby.player.ty) == (16, 5)
+    assert "Banho tomado" in dialog_text(lobby)
 
 
 def test_sentar_no_sofa_ver_tv(game, lobby):
@@ -112,11 +152,6 @@ def test_sentar_no_sofa_ver_tv(game, lobby):
     lobby.draw(game.screen)
     press(lobby, pygame.K_z)                                  # sentado, A mostra o programa da TV
     assert dialog_text(lobby).startswith("TV:")
-
-
-def test_as_duas_tvs_do_andar_de_cima_ficam_ligadas(lobby):
-    lobby.load_map("casa_superior", (13, 13), "up")
-    assert len(lobby.tvs) == 2
 
 
 def test_closet_troca_a_roupa(game, lobby):
@@ -154,7 +189,7 @@ def test_casa_e_particular_no_online(lobby):
     assert other in lobby.remotes_here()
 
 
-def test_rebeca_tem_cabelo_cacheado_e_shorts_desenhados(lobby):
+def test_cacheado_e_shorts_sao_desenhados(lobby):
     from game.data.looks import Look
     curly = Look("Feminino", "cacheado", "castanho", 3, top="top", shirt="preto", bottom="shorts", legs="preto")
     straight = Look("Feminino", "chanel", "castanho", 3, top="top", shirt="preto", bottom="shorts", legs="preto")

@@ -243,32 +243,44 @@ def tv() -> pygame.Surface:
 
 def tv_channels(size=None) -> list[pygame.Surface]:
     """Os 3 canais da TV (mesma ordem de world.TV_SHOWS): coliseu ao vivo, tempo e carta do dia.
-    `size`: tela menor (TV do quarto): os canais são reduzidos uma vez."""
-    if size and tuple(size) != TV_SCREEN.size:
-        return [pygame.transform.scale(frame, size) for frame in tv_channels()]
-    w, h = TV_SCREEN.size
+
+    O desenho é pensado numa tela de 54 x 22 e redesenhado PROPORCIONAL ao tamanho pedido (a TV grande da casa
+    não fica esticada). Telas menores que a da lanchonete só reduzem o desenho pronto."""
+    w, h = size or TV_SCREEN.size
+    if w < TV_SCREEN.w:
+        return [pygame.transform.scale(frame, (w, h)) for frame in tv_channels()]
+    sx, sy = w / TV_SCREEN.w, h / TV_SCREEN.h
+
+    def r(x, y, rw, rh):
+        return pygame.Rect(round(x * sx), round(y * sy), max(1, round(rw * sx)), max(1, round(rh * sy)))
+
+    def pt(x, y):
+        return round(x * sx), round(y * sy)
+
+    radius = min(sx, sy)
     live = pygame.Surface((w, h))
     live.fill((110, 180, 240))
-    pygame.draw.rect(live, (220, 190, 130), (0, 13, w, h - 13))
-    pygame.draw.ellipse(live, (190, 160, 110), (6, 15, w - 12, 6))
+    pygame.draw.rect(live, (220, 190, 130), r(0, 13, 54, 9))
+    pygame.draw.ellipse(live, (190, 160, 110), r(6, 15, 42, 6))
     for x, color in ((16, (214, 58, 52)), (36, (56, 120, 232))):        # dois duelistas
-        pygame.draw.rect(live, color, (x, 9, 4, 7))
-        pygame.draw.circle(live, (240, 200, 160), (x + 2, 8), 2)
-    pygame.draw.rect(live, (255, 240, 120), (26, 9, 3, 4))              # a carta voando
+        pygame.draw.rect(live, color, r(x, 9, 4, 7))
+        pygame.draw.circle(live, (240, 200, 160), pt(x + 2, 8), round(2 * radius))
+    pygame.draw.rect(live, (255, 240, 120), r(26, 9, 3, 4))              # a carta voando
     draw_text(live, "AO VIVO", (3, 1), size=8, color=(255, 255, 255), shadow=(160, 20, 20))
     weather = pygame.Surface((w, h))
     weather.fill((40, 90, 170))
-    pygame.draw.circle(weather, (255, 210, 60), (14, 11), 6)
-    pygame.draw.ellipse(weather, (240, 244, 250), (20, 9, 16, 7))
-    draw_text(weather, "SOL", (38, 2), size=8, color=(255, 255, 255), shadow=None)
-    draw_text(weather, "28", (38, 10), size=8, color=(255, 230, 120), shadow=None)
+    pygame.draw.circle(weather, (255, 210, 60), pt(14, 11), round(6 * radius))
+    pygame.draw.ellipse(weather, (240, 244, 250), r(20, 9, 16, 7))
+    draw_text(weather, "SOL", pt(38, 2), size=8, color=(255, 255, 255), shadow=None)
+    draw_text(weather, "28", pt(38, 10), size=8, color=(255, 230, 120), shadow=None)
     card = pygame.Surface((w, h))
     card.fill((70, 40, 120))
-    pygame.draw.rect(card, (255, 230, 120), (5, 3, 12, 17))
-    pygame.draw.rect(card, (90, 60, 160), (6, 4, 10, 15))
-    pygame.draw.polygon(card, (255, 230, 80), [(12, 6), (8, 12), (11, 12), (9, 17), (14, 10), (11, 10)])
-    draw_text(card, "CARTA", (22, 3), size=8, color=(255, 255, 255), shadow=None)
-    draw_text(card, "DO DIA", (22, 11), size=8, color=(255, 230, 120), shadow=None)
+    pygame.draw.rect(card, (255, 230, 120), r(5, 3, 12, 17))
+    pygame.draw.rect(card, (90, 60, 160), r(6, 4, 10, 15))
+    bolt = [(12, 6), (8, 12), (11, 12), (9, 17), (14, 10), (11, 10)]
+    pygame.draw.polygon(card, (255, 230, 80), [pt(x, y) for x, y in bolt])
+    draw_text(card, "CARTA", pt(22, 3), size=8, color=(255, 255, 255), shadow=None)
+    draw_text(card, "DO DIA", pt(22, 11), size=8, color=(255, 230, 120), shadow=None)
     return [live, weather, card]
 
 

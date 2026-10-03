@@ -329,3 +329,19 @@ def test_o_amigo_me_chama_e_eu_aceito_a_troca(game, monkeypatch, tmp_path):
     refused = wait_for(friend, "swap_answer")
     assert not refused["yes"] and "sobrando" in refused["text"]
     friend.close()
+
+
+def test_vejo_a_rebeca_do_amigo_na_vila(game, monkeypatch, tmp_path):
+    lobby = host_world(game, monkeypatch, tmp_path)
+    friend, _ = friend_joins(game.net.server.port)
+    rebeca = {"t": "companion", "map": "vila", "x": lobby.player.tx + 1, "y": lobby.player.ty, "facing": "down",
+              "pose": "stand", "name": "REBECA", "look": {"hair": "cacheado", "gender": "Feminino"}}
+    friend.send(rebeca)
+    run_lobby(lobby)
+    companion = next(iter(lobby.remote_companions.values()))
+    assert companion.name == "REBECA" and companion in lobby.companions_here()
+    lobby.draw(game.screen)                                   # nome "REBECA" em cima dela
+    friend.send(dict(rebeca, map=None))                        # entrou na casa (particular): some
+    run_lobby(lobby)
+    assert not lobby.remote_companions
+    friend.close()

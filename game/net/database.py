@@ -3,6 +3,7 @@
 Fica no computador de quem hospeda, no arquivo world.db (na pasta do jogo). O SQLite já vem com o Python.
     accounts    id, usuário (único, sem diferenciar maiúsculas), hash da senha, sal, data de criação
     characters  conta -> personagem inteiro em JSON (o mesmo formato do save: Character)
+    meta        dados do mundo (ex.: "clock": o dia e a hora)
 
 Senha nunca é guardada: guardamos um HASH (PBKDF2-SHA256 com "sal" aleatório). Para conferir o login,
 calculamos o hash da senha digitada com o mesmo sal e comparamos.
@@ -30,6 +31,10 @@ CREATE TABLE IF NOT EXISTS accounts (
     password_hash TEXT NOT NULL,
     salt TEXT NOT NULL,
     created_at REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS characters (
     account_id INTEGER PRIMARY KEY REFERENCES accounts(id),
@@ -106,3 +111,14 @@ class Database:
                 "INSERT INTO characters (account_id, data, updated_at) VALUES (?, ?, ?) "
                 "ON CONFLICT(account_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
                 (account_id, text, time.time()))
+
+    # ------------------------------------------------------------ dados do mundo (ex.: o relógio)
+    def get_meta(self, key: str) -> dict | None:
+        with self.lock:
+            row = self.conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def set_meta(self, key: str, value: dict) -> None:
+        with self.lock, self.conn:
+            self.conn.execute("INSERT INTO meta (key, value) VALUES (?, ?) "
+                              "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, json.dumps(value)))
